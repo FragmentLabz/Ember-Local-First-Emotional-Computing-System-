@@ -2,6 +2,8 @@
 
 > A local-first encrypted journaling app with a cinematic timeline interface.
 
+![Views](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Jeremy-1011/Journal-App-Ember/main/traffic-data/badge.json)
+
 Ember is a desktop/browser journaling app built around the idea that not every thought is meant to last forever. Entries exist on a glowing timeline — newest ones burn bright, older ones cool to ash. Some entries are sealed until a future date. Others are written to disappear.
 
 Everything stays on your device. No accounts. No cloud. No tracking.
