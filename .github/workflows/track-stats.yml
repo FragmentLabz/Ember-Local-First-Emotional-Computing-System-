@@ -1,0 +1,130 @@
+# .github/workflows/track-stats.yml
+#
+# Records repo views, clones and release downloads once a day, forever.
+# Writes CSVs to traffic-data/ and a badge endpoint to traffic-data/badge.json.
+#
+# Setup is in traffic-data/README.md.
+
+name: Track stats
+
+on:
+  schedule:
+    # 23:50 UTC — late in the day so the current day's numbers are most complete.
+    - cron: "50 23 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: track-stats
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch stats from the GitHub API
+        env:
+          GH_TOKEN: ${{ secrets.TRAFFIC_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p traffic-data
+          gh api "repos/$REPO/traffic/views"  > /tmp/views.json
+          gh api "repos/$REPO/traffic/clones" > /tmp/clones.json
+          gh api "repos/$REPO/releases" --paginate > /tmp/releases.json
+
+      - name: Merge into CSVs
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import csv, json, os, datetime
+
+          DATA = "traffic-data"
+          os.makedirs(DATA, exist_ok=True)
+
+          def load(path, keys):
+              rows = {}
+              if os.path.exists(path):
+                  with open(path, newline="") as f:
+                      for row in csv.DictReader(f):
+                          rows[tuple(row[k] for k in keys)] = row
+              return rows
+
+          def save(path, fields, rows):
+              with open(path, "w", newline="") as f:
+                  w = csv.DictWriter(f, fieldnames=fields)
+                  w.writeheader()
+                  for key in sorted(rows):
+                      w.writerow(rows[key])
+
+          # ---- views and clones ----------------------------------------------
+          # The API returns the last 14 days on every call. Those dates get
+          # overwritten (the API is authoritative), everything older is kept
+          # forever. That is the entire trick.
+          totals = {}
+          for kind, src in (("views", "/tmp/views.json"), ("clones", "/tmp/clones.json")):
+              path = f"{DATA}/{kind}.csv"
+              rows = load(path, ["date"])
+              for day in json.load(open(src)).get(kind, []):
+                  date = day["timestamp"][:10]
+                  rows[(date,)] = {
+                      "date": date,
+                      "count": day["count"],
+                      "uniques": day["uniques"],
+                  }
+              save(path, ["date", "count", "uniques"], rows)
+              totals[kind] = sum(int(r["count"]) for r in rows.values())
+              print(f"{kind}: {len(rows)} days on record, {totals[kind]} total")
+
+          # ---- release downloads ---------------------------------------------
+          # download_count is cumulative and never resets, so store one snapshot
+          # per asset per day. Downloads on a day = today's row minus yesterday's.
+          path = f"{DATA}/downloads.csv"
+          rows = load(path, ["date", "tag", "asset"])
+          today = datetime.date.today().isoformat()
+          cumulative = 0
+          for release in json.load(open("/tmp/releases.json")):
+              for asset in release.get("assets", []):
+                  rows[(today, release["tag_name"], asset["name"])] = {
+                      "date": today,
+                      "tag": release["tag_name"],
+                      "asset": asset["name"],
+                      "download_count": asset["download_count"],
+                  }
+                  cumulative += asset["download_count"]
+          save(path, ["date", "tag", "asset", "download_count"], rows)
+          print(f"downloads: {cumulative} cumulative")
+
+          # ---- badge endpoint -------------------------------------------------
+          # Real counted views, unlike an image-hit counter. Point shields.io at
+          # this file — the URL is in the README.
+          def short(n):
+              if n >= 1_000_000: return f"{n/1_000_000:.1f}M".replace(".0M", "M")
+              if n >= 1_000:     return f"{n/1_000:.1f}k".replace(".0k", "k")
+              return str(n)
+
+          with open(f"{DATA}/badge.json", "w") as f:
+              json.dump({
+                  "schemaVersion": 1,
+                  "label": "views",
+                  "message": short(totals["views"]),
+                  "color": "informational",
+              }, f)
+
+          # ---- repo name for the dashboard header ------------------------------
+          with open(f"{DATA}/repo.txt", "w") as f:
+              f.write(os.environ["REPO"])
+          PY
+
+      - name: Commit
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add traffic-data
+          git diff --staged --quiet || git commit -m "stats: snapshot $(date -u +%Y-%m-%d)"
+          git push
