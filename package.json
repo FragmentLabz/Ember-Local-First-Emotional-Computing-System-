@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "description": "Local-first encrypted journaling",
   "author": "Jeremiah Ayeni (https://github.com/Jeremy-1011)",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "homepage": "https://github.com/Jeremy-1011/Journal-App-Ember",
   "repository": {
     "type": "git",
