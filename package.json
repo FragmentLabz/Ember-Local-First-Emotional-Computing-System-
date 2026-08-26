@@ -2,6 +2,13 @@
   "name": "ember-journal",
   "version": "2.0.0",
   "description": "Local-first encrypted journaling",
+  "author": "Jeremiah Ayeni (https://github.com/Jeremy-1011)",
+  "license": "MIT",
+  "homepage": "https://github.com/Jeremy-1011/Journal-App-Ember",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jeremy-1011/Journal-App-Ember.git"
+  },
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {

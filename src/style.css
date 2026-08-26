@@ -1,3 +1,7 @@
+/*! Copyright (c) 2026 Jeremiah Ayeni <https://github.com/Jeremy-1011>
+   This source code is licensed under the MIT license found in the
+   LICENSE file in the root directory of this source tree. */
+
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Lora:ital,wght@0,400;0,500;1,400&family=Kalam:wght@300;400&display=swap');
 
 :root {
@@ -119,6 +123,23 @@ html, body {
 }
 #spotify-btn:hover { color: var(--green); border-color: var(--green); }
 #spotify-btn.connected { color: var(--green); border-color: var(--green); }
+
+#about-btn {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 15px;
+  color: var(--text-faint);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  width: 30px; height: 30px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+#about-btn:hover { color: var(--ember-2); border-color: var(--border-2); }
 
 #new-btn {
   width: 28px; height: 28px;
@@ -914,6 +935,61 @@ html, body {
   gap: 10px;
   justify-content: flex-end;
 }
+
+/* ─── ABOUT ─────────────────────────────────────────────────────── */
+.about-modal { text-align: center; }
+
+.about-spark {
+  font-size: 26px;
+  color: var(--ember);
+  margin-bottom: 6px;
+  text-shadow: 0 0 10px var(--ember-2), 0 0 26px rgba(240,82,24,0.5);
+}
+
+.about-modal h2 { margin-bottom: 4px; }
+
+.about-modal .about-tagline {
+  font-size: 13px;
+  color: var(--text-faint);
+  font-style: italic;
+  margin-bottom: 22px;
+}
+
+.about-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  text-align: left;
+  font-size: 13px;
+  padding: 18px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.about-meta dt {
+  color: var(--text-faint);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  align-self: center;
+}
+.about-meta dd { color: var(--text-dim); }
+.about-meta dd strong { color: var(--text); font-weight: 500; }
+.about-meta a {
+  color: var(--ember-2);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+.about-meta a:hover { border-bottom-color: var(--ember-2); }
+
+.about-modal .about-license {
+  font-size: 11px;
+  color: var(--text-faint);
+  line-height: 1.6;
+  margin: 18px 0 0;
+}
+
+.about-modal .modal-actions { justify-content: center; margin-top: 14px; }
 
 .btn-ghost {
   font-family: system-ui, sans-serif;
