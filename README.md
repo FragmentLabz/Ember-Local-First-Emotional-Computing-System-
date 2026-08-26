@@ -97,6 +97,16 @@ npm run electron
 └── package.json
 ```
 
+## Author
+
+**Jeremiah Ayeni** — [github.com/Jeremy-1011](https://github.com/Jeremy-1011)
+
+Authorship is also recorded in the header of every source file, and shown in the
+app's own **About** panel (the `i` button in the top-right of the window).
+
 ## License
 
-MIT — see [LICENSE](LICENSE)
+MIT — Copyright © 2026 Jeremiah Ayeni. See [LICENSE](LICENSE).
+
+You are free to use, modify and redistribute this software, including
+commercially, provided the copyright notice and licence text are retained.

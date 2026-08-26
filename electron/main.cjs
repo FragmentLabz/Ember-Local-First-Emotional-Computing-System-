@@ -1,4 +1,8 @@
-const { app, BrowserWindow, Menu, ipcMain } = require('electron');
+// Copyright (c) 2026 Jeremiah Ayeni <https://github.com/Jeremy-1011>
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron');
 const path = require('path');
 
 function createWindow() {
@@ -16,9 +20,25 @@ function createWindow() {
 
   win.loadFile(path.join(__dirname, '../dist/index.html'));
   win.once('ready-to-show', () => win.show());
+
+  // Links in the About panel (and anywhere else) open in the user's browser
+  // rather than in a bare Electron window.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://')) shell.openExternal(url);
+    return { action: 'deny' };
+  });
 }
 
 app.whenReady().then(() => {
+  // Authorship shown by the operating system's own About panel.
+  app.setAboutPanelOptions({
+    applicationName: 'ember',
+    applicationVersion: '2.0.0',
+    copyright: 'Copyright \u00A9 2026 Jeremiah Ayeni\nReleased under the MIT License.',
+    authors: ['Jeremiah Ayeni'],
+    website: 'https://github.com/Jeremy-1011',
+  });
+
   Menu.setApplicationMenu(null);
   createWindow();
 });
