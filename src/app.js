@@ -1,6 +1,20 @@
-// Copyright (c) 2026 Jeremiah Ayeni <https://github.com/Jeremy-1011>
-// This source code is licensed under the MIT license found in the
-// LICENSE file in the root directory of this source tree.
+// ember - a local-first encrypted journaling app.
+// Copyright (C) 2026 Jeremiah Ayeni <https://github.com/Jeremy-1011>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This program is free software: you can redistribute it and/or modify it
+// under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero
+// General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import { saveEntry, loadEntries, deleteEntry, generateId } from './storage.js';
 import { encrypt, decrypt, encryptBytes, decryptBytes } from './crypto.js';
@@ -12,6 +26,7 @@ import { version as pkgVersion } from '../package.json';
 const APP_VERSION = pkgVersion;
 const APP_AUTHOR  = 'Jeremiah Ayeni';
 const APP_GITHUB  = 'https://github.com/Jeremy-1011';
+const APP_SOURCE  = 'https://github.com/Jeremy-1011/Journal-App-Ember';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let entries = [];
@@ -178,10 +193,14 @@ function render() {
         <dl class="about-meta">
           <dt>Version</dt><dd>${APP_VERSION}</dd>
           <dt>Created by</dt><dd><strong>${APP_AUTHOR}</strong></dd>
-          <dt>Source</dt><dd><a href="${APP_GITHUB}" target="_blank" rel="noopener noreferrer">${APP_GITHUB.replace('https://', '')}</a></dd>
+          <dt>Source</dt><dd><a href="${APP_SOURCE}" target="_blank" rel="noopener noreferrer">Get the source code</a></dd>
           <dt>Built with</dt><dd>Electron &middot; Vite &middot; Web Crypto</dd>
         </dl>
-        <p class="about-license">Copyright &copy; 2026 ${APP_AUTHOR}. Released under the MIT License.</p>
+        <p class="about-license">Copyright &copy; 2026 <a href="${APP_GITHUB}" target="_blank" rel="noopener noreferrer">${APP_AUTHOR}</a>.<br>
+          Licensed under the <strong>GNU Affero General Public License v3</strong> or later.
+          This program comes with absolutely no warranty. You are free to redistribute
+          it and modify it under those terms &mdash; including over a network, in which
+          case you must offer your users the corresponding source.</p>
         <div class="modal-actions">
           <button class="btn-ghost" id="about-modal-close">Close</button>
         </div>
