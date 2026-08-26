@@ -106,7 +106,28 @@ app's own **About** panel (the `i` button in the top-right of the window).
 
 ## License
 
-MIT — Copyright © 2026 Jeremiah Ayeni. See [LICENSE](LICENSE).
+**GNU Affero General Public License v3.0 or later** — Copyright © 2026 Jeremiah Ayeni.
+See [LICENSE](LICENSE) for the full text.
 
-You are free to use, modify and redistribute this software, including
-commercially, provided the copyright notice and licence text are retained.
+In short, you are free to use, study, modify and redistribute Ember, including
+commercially, on these conditions:
+
+- **Keep it open.** Any copy or modified version you distribute must also be
+  released under the AGPL, with source available. You cannot take this code
+  closed-source.
+- **Network use counts as distribution.** If you run a modified Ember as a
+  hosted service, you must offer its users the corresponding source code
+  (AGPL §13). This is the clause the MIT licence lacked.
+- **Keep the notices.** The copyright and licence notices must be retained.
+
+The AGPL permits charging money for the software. What it does not permit is
+distributing it — or hosting it — without passing the same freedoms on.
+
+### Note on earlier versions
+
+Ember was released under the MIT licence up to and including commit
+[`051eb92`](https://github.com/Jeremy-1011/Journal-App-Ember/commit/051eb92).
+That grant is irrevocable for those versions: anyone who obtained the code
+under MIT keeps MIT rights to *that* code. The AGPL applies from this commit
+onwards. Relicensing was possible because all contributions to date are the
+work of a single copyright holder.
