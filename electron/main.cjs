@@ -4,6 +4,7 @@
 
 const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron');
 const path = require('path');
+const { version } = require('../package.json');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -33,7 +34,7 @@ app.whenReady().then(() => {
   // Authorship shown by the operating system's own About panel.
   app.setAboutPanelOptions({
     applicationName: 'ember',
-    applicationVersion: '2.0.0',
+    applicationVersion: version,
     copyright: 'Copyright \u00A9 2026 Jeremiah Ayeni\nReleased under the MIT License.',
     authors: ['Jeremiah Ayeni'],
     website: 'https://github.com/Jeremy-1011',
