@@ -6,10 +6,10 @@ import { saveEntry, loadEntries, deleteEntry, generateId } from './storage.js';
 import { encrypt, decrypt, encryptBytes, decryptBytes } from './crypto.js';
 import { renderDecayBody, getDecayProgress } from './decay.js';
 import { startAuth, exchangeCode, getNowPlaying, getAudioFeatures, isConnected, disconnect } from './spotify.js';
+import { version as pkgVersion } from '../package.json';
 
 // ─── App metadata ─────────────────────────────────────────────────────────────
-// Keep APP_VERSION in step with the "version" field in package.json.
-const APP_VERSION = '2.0.0';
+const APP_VERSION = pkgVersion;
 const APP_AUTHOR  = 'Jeremiah Ayeni';
 const APP_GITHUB  = 'https://github.com/Jeremy-1011';
 
