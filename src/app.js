@@ -1,7 +1,17 @@
+// Copyright (c) 2026 Jeremiah Ayeni <https://github.com/Jeremy-1011>
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
 import { saveEntry, loadEntries, deleteEntry, generateId } from './storage.js';
 import { encrypt, decrypt, encryptBytes, decryptBytes } from './crypto.js';
 import { renderDecayBody, getDecayProgress } from './decay.js';
 import { startAuth, exchangeCode, getNowPlaying, getAudioFeatures, isConnected, disconnect } from './spotify.js';
+
+// ─── App metadata ─────────────────────────────────────────────────────────────
+// Keep APP_VERSION in step with the "version" field in package.json.
+const APP_VERSION = '2.0.0';
+const APP_AUTHOR  = 'Jeremiah Ayeni';
+const APP_GITHUB  = 'https://github.com/Jeremy-1011';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let entries = [];
@@ -125,6 +135,7 @@ function render() {
         <span class="spark">&#10022;</span> ember
       </div>
       <div id="header-right">
+        <button id="about-btn" title="About ember" aria-label="About ember">i</button>
         <button id="spotify-btn" class="${isConnected() ? 'connected' : ''}">&#9835;</button>
         <button id="new-btn" title="New entry">+</button>
       </div>
@@ -155,6 +166,24 @@ function render() {
             : `<button class="btn-ghost" id="spotify-modal-close">Cancel</button>
                <button class="btn-green" id="spotify-connect-btn">Connect</button>`
           }
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="about-modal">
+      <div class="modal about-modal">
+        <div class="about-spark">&#10022;</div>
+        <h2>ember</h2>
+        <p class="about-tagline">A local-first encrypted journaling app.</p>
+        <dl class="about-meta">
+          <dt>Version</dt><dd>${APP_VERSION}</dd>
+          <dt>Created by</dt><dd><strong>${APP_AUTHOR}</strong></dd>
+          <dt>Source</dt><dd><a href="${APP_GITHUB}" target="_blank" rel="noopener noreferrer">${APP_GITHUB.replace('https://', '')}</a></dd>
+          <dt>Built with</dt><dd>Electron &middot; Vite &middot; Web Crypto</dd>
+        </dl>
+        <p class="about-license">Copyright &copy; 2026 ${APP_AUTHOR}. Released under the MIT License.</p>
+        <div class="modal-actions">
+          <button class="btn-ghost" id="about-modal-close">Close</button>
         </div>
       </div>
     </div>
@@ -553,6 +582,18 @@ function bindEvents() {
   });
 
   document.getElementById('spotify-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+  });
+
+  document.getElementById('about-btn')?.addEventListener('click', () => {
+    document.getElementById('about-modal').classList.add('open');
+  });
+
+  document.getElementById('about-modal-close')?.addEventListener('click', () => {
+    document.getElementById('about-modal').classList.remove('open');
+  });
+
+  document.getElementById('about-modal').addEventListener('click', e => {
     if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
   });
 
