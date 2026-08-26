@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Jeremiah Ayeni <https://github.com/Jeremy-1011>
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
 // Spotify PKCE OAuth + API helpers
 
 const CLIENT_ID = 'YOUR_CLIENT_ID_HERE';
