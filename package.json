@@ -5,6 +5,8 @@
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
+    "setup-all": "npm install",
+    "start": "vite build && electron .",
     "dev": "vite",
     "build": "vite build",
     "electron": "vite build && electron .",
