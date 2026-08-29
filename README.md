@@ -1,4 +1,4 @@
-# ✦ Ember — The World's First Local-First Emotional Computing System
+# ✦ Ember — The World's First Local-First Emotional Computing Systems
 
 > **100% Local-First • GNU AGPLv3 Free Software**
 
