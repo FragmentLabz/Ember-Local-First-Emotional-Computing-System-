@@ -305,6 +305,7 @@ function renderWrite() {
     <div class="write-inner">
       <input id="write-title" type="text" placeholder="title&#8230;" value="${escAttr(entry.title || '')}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       <div id="write-body" class="write-editor" contenteditable="true" data-placeholder="write anything, or press / for blocks" spellcheck="false"></div>
+      <span class="honesty-hint">honesty constraint &#8212; paste is disabled, this has to be in your own words</span>
       <div class="type-options">
         ${currentType === 'capsule' ? renderCapsuleOptions(entry) : ''}
         ${currentType === 'decay'   ? renderDecayOptions(entry)   : ''}
@@ -327,7 +328,7 @@ function renderWrite() {
           ${nowPlaying ? `&#9835; ${escHtml(nowPlaying.trackName || '')}` : ''}
         </div>
         <button id="cancel-btn">cancel</button>
-        <button id="seal-btn"><span>seal it</span></button>
+        <button id="seal-btn"><span>${writeMode === 'edit' ? 'save changes' : 'seal it'}</span></button>
       </div>
     </div>`;
 }
@@ -449,6 +450,68 @@ function renderAttachmentsHTML(list) {
 }
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
+// Time-Lock Revisitation: the first time an entry is reopened after writing it
+// only records that it happened — edit/delete stay locked. They unlock on a
+// later, separate visit, so you can't write something and immediately erase it.
+function markRevisited(entry) {
+  if (!entry || entry.revisitedAt) return;
+  entry.revisitedAt = Date.now();
+  saveEntry(entry).catch(() => {});
+}
+
+function canModify(entry) {
+  // Must have been opened on a strictly earlier, separate visit before this one.
+  if (!entry?._priorRevisit) return false;
+  if (entry.type === 'capsule') return Date.now() >= entry.capsule?.unlockAt;
+  return true;
+}
+
+function renderReadActions(e) {
+  const unlocked = canModify(e);
+  const lockTitle = e._priorRevisit
+    ? 'Sealed entries can only be deleted after they unlock.'
+    : 'This is the first time you’ve opened this entry since writing it — come back and revisit it again before you can edit or delete it.';
+  const editBtn = e.type !== 'capsule'
+    ? `<button class="read-action" id="read-edit-btn" ${unlocked ? '' : 'disabled'} title="${unlocked ? 'Edit this entry' : lockTitle}">&#9998; edit</button>`
+    : '';
+  const deleteTitle = unlocked ? 'Delete this entry' : lockTitle;
+  return `<div class="read-actions">
+    ${editBtn}
+    <button class="read-action read-action-danger" id="read-delete-btn" ${unlocked ? '' : 'disabled'} title="${deleteTitle}">&#128465; delete</button>
+  </div>`;
+}
+
+function bindReadActions() {
+  document.getElementById('read-back')?.addEventListener('click', () => showView('list'));
+
+  document.getElementById('read-edit-btn')?.addEventListener('click', () => {
+    const e = currentEntry;
+    if (!e || !canModify(e)) return;
+    editingId    = e.id;
+    currentEntry = e;
+    currentType  = e.type;
+    writeMode    = 'edit';
+    // Existing (non-encrypted) attachments become pending files so the editor
+    // shows them and re-saves them unless the user removes or replaces them.
+    pendingAttachments = (e.attachments || []).map(a => ({
+      id: a.id, name: a.name, type: a.type, size: a.size, blob: a.blob,
+    }));
+    render();
+    showView('write');
+  });
+
+  document.getElementById('read-delete-btn')?.addEventListener('click', async () => {
+    const e = currentEntry;
+    if (!e || !canModify(e)) return;
+    if (!confirm(`Delete "${e.title || 'Untitled'}"? This cannot be undone.`)) return;
+    await deleteEntry(e.id);
+    entries = await loadEntries();
+    currentEntry = null;
+    showView('list');
+    render();
+  });
+}
+
 function renderRead() {
   if (!currentEntry) return '';
   const e = currentEntry;
@@ -513,6 +576,7 @@ function renderRead() {
         <span>${dateStr}</span>
         ${e.type !== 'regular' ? `<span class="read-type-badge">${e.type}</span>` : ''}
       </div>
+      ${renderReadActions(e)}
     </div>
     ${bodyHtml}
     ${tombHtml}
@@ -620,9 +684,14 @@ function bindEvents() {
     row.addEventListener('click', () => {
       const id = row.dataset.id;
       currentEntry = entries.find(e => e.id === id);
+      // The revisit that unlocks edit/delete must be a *separate* visit from
+      // the one that first records it — so capture the prior state before
+      // markRevisited() sets it, and gate this view's controls on that.
+      currentEntry._priorRevisit = !!currentEntry?.revisitedAt;
+      markRevisited(currentEntry);
       // Re-render the read view content before showing it
       document.getElementById('read-view').innerHTML = renderRead();
-      document.getElementById('read-back')?.addEventListener('click', () => showView('list'));
+      bindReadActions();
       showView('read');
       if (currentEntry?.type === 'capsule' && Date.now() >= currentEntry.capsule?.unlockAt) {
         decryptAndShowCapsule(currentEntry);
@@ -652,10 +721,19 @@ function bindEvents() {
       handleSlashInput(writeBody);
     });
     writeBody.addEventListener('keydown', handleSlashKeydown);
+    // Honesty Constraint: pasted text would let you filter/pre-edit a thought
+    // before it ever reaches the page, so composition only accepts typing.
+    writeBody.addEventListener('paste', e => e.preventDefault());
+    writeBody.addEventListener('drop', e => {
+      if (e.dataTransfer?.types?.includes('text/plain')) e.preventDefault();
+    });
   }
 
   document.getElementById('cancel-btn')?.addEventListener('click', () => {
     stopSpotifyPoll();
+    editingId = null;
+    writeMode = 'new';
+    pendingAttachments = [];
     showView('list');
   });
 
@@ -917,12 +995,13 @@ async function handleSeal() {
   const hasText = (editor?.textContent || '').trim().length > 0;
   if (!title && !hasText) return;
 
+  const original = editingId ? entries.find(e => e.id === editingId) : null;
   const id = editingId || generateId();
-  const createdAt = editingId
-    ? (entries.find(e => e.id === editingId)?.createdAt || Date.now())
-    : Date.now();
+  const createdAt = original?.createdAt || Date.now();
 
   let entry = { id, createdAt, title, type: currentType, rich: true };
+  // Editing doesn't reset the revisitation gate — it was already earned to get here.
+  if (original?.revisitedAt) entry.revisitedAt = original.revisitedAt;
 
   if (currentType === 'regular') entry.body = body;
 
@@ -968,6 +1047,8 @@ async function handleSeal() {
       const features = await getAudioFeatures(nowPlaying.trackId);
       if (features) entry.spotify = { ...entry.spotify, ...features };
     } catch {}
+  } else if (original?.spotify) {
+    entry.spotify = original.spotify;
   }
 
   stopSpotifyPoll();
@@ -975,6 +1056,8 @@ async function handleSeal() {
   entries = await loadEntries();
   pendingAttachments = [];
   currentEntry = entry;
+  editingId    = null;
+  writeMode    = 'new';
   showView('list');
   render();
 }
