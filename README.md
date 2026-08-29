@@ -2,7 +2,7 @@
 
 > **100% Local-First • GNU AGPLv3 Free Software**
 
-![Views](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Jeremy-1011/Journal-App-Ember/main/traffic-data/badge.json)
+![Views](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Jeremy-1011/Ember--A-Local-First-Emotional-Computing-System-/main/traffic-data/badge.json)
 
 Ember is the category-defining implementation of **Emotional Computing Systems** — a new
 class of cognitive software built on computational emotional mechanics.

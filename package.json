@@ -1,13 +1,35 @@
 {
-  "name": "ember-journal",
+  "name": "ember-emotional-computing",
   "version": "2.0.0",
-  "description": "Local-first encrypted journaling",
+  "description": "Ember - the first local-first Emotional Computing System: computational emotional mechanics (emotional decay, time-lock revisitation, honesty constraints) with fully offline, encrypted storage",
+  "keywords": [
+    "emotional-computing",
+    "emotional-computing-systems",
+    "computational-emotional-mechanics",
+    "emotional-decay",
+    "time-lock",
+    "honesty-constraints",
+    "cognitive-software",
+    "local-first",
+    "offline-first",
+    "zero-knowledge",
+    "privacy",
+    "encryption",
+    "aes-gcm",
+    "indexeddb",
+    "electron",
+    "vite",
+    "agpl"
+  ],
   "author": "Jeremiah Ayeni (https://github.com/Jeremy-1011)",
   "license": "AGPL-3.0-or-later",
-  "homepage": "https://github.com/Jeremy-1011/Journal-App-Ember",
+  "homepage": "https://github.com/Jeremy-1011/Ember--A-Local-First-Emotional-Computing-System-",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Jeremy-1011/Journal-App-Ember.git"
+    "url": "git+https://github.com/Jeremy-1011/Ember--A-Local-First-Emotional-Computing-System-.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Jeremy-1011/Ember--A-Local-First-Emotional-Computing-System-/issues"
   },
   "main": "electron/main.cjs",
   "type": "module",
