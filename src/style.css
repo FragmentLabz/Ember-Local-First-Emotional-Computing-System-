@@ -568,6 +568,19 @@ html, body {
 .slash-label { font-size: 13px; color: var(--text); }
 .slash-hint { font-size: 11px; color: var(--text-faint); }
 
+.write-errors:empty { display: none; }
+.write-errors {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--dec-color);
+  border-radius: 8px;
+  background: #1a0805;
+  color: var(--dec-color);
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .type-options {
   margin-top: 24px;
   padding: 20px 0;

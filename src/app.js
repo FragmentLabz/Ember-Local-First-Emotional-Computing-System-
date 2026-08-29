@@ -18,7 +18,7 @@
 
 import { saveEntry, loadEntries, deleteEntry, generateId } from './storage.js';
 import { encrypt, decrypt, encryptBytes, decryptBytes } from './crypto.js';
-import { renderDecayBody, getDecayProgress } from './decay.js';
+import { checkServices, validateEntry, checkCanModify, fetchDecayBatch, renderDecayEntry } from './services.js';
 import { startAuth, exchangeCode, getNowPlaying, getAudioFeatures, isConnected, disconnect } from './spotify.js';
 import { version as pkgVersion } from '../package.json';
 
@@ -35,6 +35,7 @@ let currentView  = 'list';
 let currentType  = 'regular';
 let nowPlaying   = null;
 let spotifyPollTimer = null;
+let decayStatus  = {}; // entry id -> { progress, fullyDecayed }, from the reflective-modules service
 let writeMode    = 'new';
 let editingId    = null;
 let pendingAttachments = []; // { id, name, type, size, blob } while writing
@@ -252,7 +253,7 @@ function renderList() {
       const canOpen = Date.now() >= e.capsule.unlockAt;
       preview = canOpen ? 'Ready to open' : `Sealed until ${formatDate(e.capsule.unlockAt)}`;
     } else if (e.type === 'decay') {
-      const { fullyDecayed } = getDecayProgress(e);
+      const fullyDecayed = decayStatus[e.id]?.fullyDecayed ?? false;
       preview = fullyDecayed ? '[fully decayed]'
               : (e.rich ? stripTags(e.body || '') : (e.body || '')).slice(0, 140);
     } else {
@@ -298,6 +299,19 @@ function renderList() {
   </div>`;
 }
 
+// Batches every decaying entry's progress/fullyDecayed status through the
+// reflective-modules service in one call. Call after any change to `entries`.
+async function refreshDecayStatus() {
+  const decaying = entries.filter(e => e.type === 'decay');
+  if (!decaying.length) { decayStatus = {}; return; }
+  try {
+    decayStatus = await fetchDecayBatch(decaying);
+  } catch {
+    // Reflective service unreachable mid-session — boot() already gates
+    // startup on checkServices(), so keep showing the last known status.
+  }
+}
+
 // ─── Write ────────────────────────────────────────────────────────────────────
 function renderWrite() {
   const entry = currentEntry || {};
@@ -306,6 +320,7 @@ function renderWrite() {
       <input id="write-title" type="text" placeholder="title&#8230;" value="${escAttr(entry.title || '')}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       <div id="write-body" class="write-editor" contenteditable="true" data-placeholder="write anything, or press / for blocks" spellcheck="false"></div>
       <span class="honesty-hint">honesty constraint &#8212; paste is disabled, this has to be in your own words</span>
+      <div id="write-errors" class="write-errors"></div>
       <div class="type-options">
         ${currentType === 'capsule' ? renderCapsuleOptions(entry) : ''}
         ${currentType === 'decay'   ? renderDecayOptions(entry)   : ''}
@@ -459,26 +474,40 @@ function markRevisited(entry) {
   saveEntry(entry).catch(() => {});
 }
 
-function canModify(entry) {
-  // Must have been opened on a strictly earlier, separate visit before this one.
-  if (!entry?._priorRevisit) return false;
-  if (entry.type === 'capsule') return Date.now() >= entry.capsule?.unlockAt;
-  return true;
+// Time-lock enforcement now lives in the C# validation engine (checkCanModify,
+// src/services.js) — actions render disabled/pending here and get patched
+// once that check resolves (refreshReadActions, below).
+function renderReadActions(e) {
+  const editBtn = e.type !== 'capsule'
+    ? `<button class="read-action" id="read-edit-btn" disabled title="Checking…">&#9998; edit</button>`
+    : '';
+  return `<div class="read-actions">
+    ${editBtn}
+    <button class="read-action read-action-danger" id="read-delete-btn" disabled title="Checking…">&#128465; delete</button>
+  </div>`;
 }
 
-function renderReadActions(e) {
-  const unlocked = canModify(e);
+async function refreshReadActions(e) {
   const lockTitle = e._priorRevisit
     ? 'Sealed entries can only be deleted after they unlock.'
     : 'This is the first time you’ve opened this entry since writing it — come back and revisit it again before you can edit or delete it.';
-  const editBtn = e.type !== 'capsule'
-    ? `<button class="read-action" id="read-edit-btn" ${unlocked ? '' : 'disabled'} title="${unlocked ? 'Edit this entry' : lockTitle}">&#9998; edit</button>`
-    : '';
-  const deleteTitle = unlocked ? 'Delete this entry' : lockTitle;
-  return `<div class="read-actions">
-    ${editBtn}
-    <button class="read-action read-action-danger" id="read-delete-btn" ${unlocked ? '' : 'disabled'} title="${deleteTitle}">&#128465; delete</button>
-  </div>`;
+  let unlocked = false;
+  let title = lockTitle;
+  try {
+    unlocked = await checkCanModify(e);
+  } catch {
+    title = 'Could not reach the validation engine — staying locked.';
+  }
+  const editBtn = document.getElementById('read-edit-btn');
+  if (editBtn) {
+    editBtn.disabled = !unlocked;
+    editBtn.title = unlocked ? 'Edit this entry' : title;
+  }
+  const deleteBtn = document.getElementById('read-delete-btn');
+  if (deleteBtn) {
+    deleteBtn.disabled = !unlocked;
+    deleteBtn.title = unlocked ? 'Delete this entry' : title;
+  }
 }
 
 function bindReadActions() {
@@ -486,7 +515,7 @@ function bindReadActions() {
 
   document.getElementById('read-edit-btn')?.addEventListener('click', () => {
     const e = currentEntry;
-    if (!e || !canModify(e)) return;
+    if (!e) return;
     editingId    = e.id;
     currentEntry = e;
     currentType  = e.type;
@@ -502,10 +531,11 @@ function bindReadActions() {
 
   document.getElementById('read-delete-btn')?.addEventListener('click', async () => {
     const e = currentEntry;
-    if (!e || !canModify(e)) return;
+    if (!e) return;
     if (!confirm(`Delete "${e.title || 'Untitled'}"? This cannot be undone.`)) return;
     await deleteEntry(e.id);
     entries = await loadEntries();
+    await refreshDecayStatus();
     currentEntry = null;
     showView('list');
     render();
@@ -534,15 +564,8 @@ function renderRead() {
       </div>`;
     }
   } else if (e.type === 'decay') {
-    const { html, tombstone, fullyDecayed } = renderDecayBody(e);
-    if (fullyDecayed) {
-      bodyHtml = `<div class="read-body" style="color:var(--text-faint);font-style:italic">[This entry has fully decayed]</div>`;
-    } else {
-      bodyHtml = `<div class="read-body">${html}</div>`;
-    }
-    if (tombstone && fullyDecayed) {
-      tombHtml = `<div class="decay-tombstone">${escHtml(tombstone)}</div>`;
-    }
+    // Rendered by the Python reflective-modules service — see showDecayedBody().
+    bodyHtml = `<div class="read-body" id="decay-body-placeholder"><em style="color:var(--text-faint)">Reflecting&#8230;</em></div>`;
   } else {
     bodyHtml = e.rich
       ? `<div class="read-body rich">${sanitizeHtml(e.body || '')}</div>`
@@ -693,8 +716,12 @@ function bindEvents() {
       document.getElementById('read-view').innerHTML = renderRead();
       bindReadActions();
       showView('read');
+      refreshReadActions(currentEntry);
       if (currentEntry?.type === 'capsule' && Date.now() >= currentEntry.capsule?.unlockAt) {
         decryptAndShowCapsule(currentEntry);
+      }
+      if (currentEntry?.type === 'decay') {
+        showDecayedBody(currentEntry);
       }
     });
   });
@@ -1051,15 +1078,28 @@ async function handleSeal() {
     entry.spotify = original.spotify;
   }
 
+  const validation = await validateEntry(entry);
+  if (!validation.valid) {
+    showSealErrors(validation.errors);
+    return;
+  }
+
   stopSpotifyPoll();
   await saveEntry(entry);
   entries = await loadEntries();
+  await refreshDecayStatus();
   pendingAttachments = [];
   currentEntry = entry;
   editingId    = null;
   writeMode    = 'new';
   showView('list');
   render();
+}
+
+function showSealErrors(errors) {
+  const box = document.getElementById('write-errors');
+  if (!box) return;
+  box.innerHTML = errors.map(msg => `<div>${escHtml(msg)}</div>`).join('');
 }
 
 // ─── Capsule decryption ───────────────────────────────────────────────────────
@@ -1087,6 +1127,26 @@ async function decryptAndShowCapsule(entry) {
     }
   } catch {
     placeholder.innerHTML = `<em style="color:var(--dec-color)">Could not decrypt &#8212; passphrase may differ.</em>`;
+  }
+}
+
+// ─── Decay rendering (reflective-modules service) ─────────────────────────────
+async function showDecayedBody(entry) {
+  const placeholder = document.getElementById('decay-body-placeholder');
+  if (!placeholder) return;
+  try {
+    const result = await renderDecayEntry(entry);
+    if (result.fullyDecayed) {
+      placeholder.outerHTML = `<div class="read-body" style="color:var(--text-faint);font-style:italic">[This entry has fully decayed]</div>`;
+      if (result.tombstone) {
+        document.querySelector('#read-view .read-body')
+          ?.insertAdjacentHTML('afterend', `<div class="decay-tombstone">${escHtml(result.tombstone)}</div>`);
+      }
+    } else {
+      placeholder.outerHTML = `<div class="read-body">${result.html}</div>`;
+    }
+  } catch {
+    placeholder.innerHTML = `<em style="color:var(--dec-color)">Could not reach the reflective-modules service &#8212; try again shortly.</em>`;
   }
 }
 
@@ -1144,8 +1204,26 @@ function stripTags(html) {
 }
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
+function renderServiceError(status) {
+  const missing = [];
+  if (!status.validation) missing.push('the validation engine (C#, http://127.0.0.1:8901)');
+  if (!status.reflective) missing.push('the reflective-modules service (Python, http://127.0.0.1:8902)');
+  document.getElementById('app').innerHTML = `
+    <div class="empty-state" style="height:100vh;">
+      <div class="big-spark" style="color:var(--dec-color);animation:none;">&#10022;</div>
+      <p>Ember can't reach ${missing.join(' and ')}.</p>
+      <small>Run <span style="font-family:monospace">npm run services</span> (or <span style="font-family:monospace">npm run dev</span>, which starts them too), then reload.</small>
+    </div>`;
+}
+
 async function boot() {
+  const status = await checkServices();
+  if (!status.ok) {
+    renderServiceError(status);
+    return;
+  }
   entries = await loadEntries();
+  await refreshDecayStatus();
   initDP();
   render();
   requestAnimationFrame(() => {
