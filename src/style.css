@@ -568,6 +568,19 @@ html, body {
 .slash-label { font-size: 13px; color: var(--text); }
 .slash-hint { font-size: 11px; color: var(--text-faint); }
 
+.write-errors:empty { display: none; }
+.write-errors {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--dec-color);
+  border-radius: 8px;
+  background: #1a0805;
+  color: var(--dec-color);
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .type-options {
   margin-top: 24px;
   padding: 20px 0;
@@ -817,6 +830,31 @@ html, body {
   border-radius: 4px;
   padding: 1px 6px;
   font-size: 9px;
+}
+
+.read-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.read-action {
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+.read-action:hover:not(:disabled) { color: var(--text-dim); border-color: var(--border-2); }
+.read-action-danger:hover:not(:disabled) { color: var(--dec-color); border-color: var(--dec-color); }
+.read-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
 }
 
 .read-body {
@@ -1159,6 +1197,14 @@ html, body {
   margin-left: 10px;
   font-size: 11px;
   color: var(--cap-color);
+  font-style: italic;
+}
+.honesty-hint {
+  display: block;
+  margin-top: 10px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--text-faint);
   font-style: italic;
 }
 .write-inner.drag-over {
