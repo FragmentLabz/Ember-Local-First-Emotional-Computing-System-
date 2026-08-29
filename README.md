@@ -1,4 +1,4 @@
-# ✦ Ember — The World's First Local-First Emotional Computing System
+# ✦ Ember — The World's First Local-First Emotional Computing Systems
 
 > **100% Local-First • GNU AGPLv3 Free Software**
 
@@ -110,14 +110,45 @@ The full technical framework is documented in the whitepaper:
 | UI | Vanilla JavaScript (no framework) |
 | Bundler | Vite 5 |
 | Desktop | Electron 29 |
-| Validation & decay | JavaScript (`src/decay.js`) |
+| Validation engine | C# / ASP.NET Core (`services/validation-engine`) |
+| Reflective modules | Python / FastAPI (`services/reflective-modules`) |
 | Storage | IndexedDB (local, no server) |
 | Encryption | Web Crypto API — AES-GCM 256-bit, PBKDF2 200k iterations |
 | Fonts | Cormorant Garamond · Lora · Kalam (Google Fonts) |
 
-> The validation engine (C#) and reflective modules (Python) described in the
-> architectural model are planned as separate processes; today both roles are served
-> in-process by the JavaScript layer.
+The validation engine and reflective modules described in the architectural
+model are real, separate local processes — both bound to `127.0.0.1` only,
+never reachable from outside the machine, and required for the app to run
+(there is no in-process JS fallback):
+
+- **Validation engine (C#)**, `http://127.0.0.1:8901` — validates a draft
+  entry's capsule/decay settings before it's saved, and enforces the
+  Time-Lock Revisitation gate (whether an entry may currently be edited or
+  deleted).
+- **Reflective modules (Python)**, `http://127.0.0.1:8902` — computes
+  Emotional Decay: how far an entry has decayed, and the redacted or
+  fading text shown for it.
+
+Honesty Constraints (disabling paste while writing) stay enforced in the
+frontend — there's no way for a backend to tell, after the fact, whether
+text was typed or pasted.
+
+### Running the local services
+
+Prerequisites: **.NET SDK 10+** and **Python 3.11+**, in addition to Node.
+
+```bash
+npm install
+pip install -r services/reflective-modules/requirements.txt
+npm run services   # starts both local services (also included in `npm run dev` / `npm run electron`)
+```
+
+If either service isn't running, Ember shows an error screen naming which
+one it can't reach rather than starting in a degraded state.
+
+> Packaging these services into the Electron build so end users don't need
+> .NET/Python installed separately is a planned follow-up, not done yet —
+> today this is a development-time setup.
 
 ---
 
@@ -160,9 +191,13 @@ npm run electron
 │   ├── app.js        # Main UI — views, editor, event binding
 │   ├── crypto.js     # AES-GCM encrypt/decrypt (text + binary)
 │   ├── storage.js    # IndexedDB persistence
-│   ├── decay.js      # Emotional decay progress & rendering
+│   ├── services.js   # Client for the local validation-engine / reflective-modules services
 │   ├── spotify.js    # Spotify PKCE OAuth + now-playing API
 │   └── style.css     # Coal & Fire design system
+├── services/
+│   ├── validation-engine/       # C# — entry validation, time-lock enforcement
+│   ├── validation-engine-tests/ # xUnit tests for the above
+│   └── reflective-modules/      # Python — emotional decay computation
 ├── electron/
 │   ├── main.cjs      # Electron main process + Spotify OAuth window
 │   └── preload.cjs   # Context bridge (contextIsolation)
