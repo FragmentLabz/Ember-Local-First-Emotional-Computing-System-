@@ -27,34 +27,6 @@ export function getDecayProgress(entry) {
   return { progress, fullyDecayed: progress >= 1 };
 }
 
-export function applyDecay(body, decay, progress) {
-  if (progress <= 0) return body;
-
-  if (decay.mode === 'burn') {
-    // Fade opacity handled via CSS; return body as-is
-    return body;
-  }
-
-  if (decay.mode === 'words') {
-    const words = body.split(/(\s+)/);
-    const visible = words.filter(w => !/^\s+$/.test(w));
-    const redactCount = Math.floor(progress * visible.length);
-    let redacted = 0;
-    return words.map(w => {
-      if (/^\s+$/.test(w)) return w;
-      // Redact from the end
-      const idx = visible.indexOf(w, visible.length - redactCount - 1 + redacted);
-      if (redacted < redactCount) {
-        redacted++;
-        return '█'.repeat(w.length);
-      }
-      return w;
-    }).join('');
-  }
-
-  return body;
-}
-
 export function renderDecayBody(entry) {
   const { progress, fullyDecayed } = getDecayProgress(entry);
   if (fullyDecayed) {

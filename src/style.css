@@ -819,6 +819,31 @@ html, body {
   font-size: 9px;
 }
 
+.read-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.read-action {
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+.read-action:hover:not(:disabled) { color: var(--text-dim); border-color: var(--border-2); }
+.read-action-danger:hover:not(:disabled) { color: var(--dec-color); border-color: var(--dec-color); }
+.read-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
 .read-body {
   font-family: 'Lora', serif;
   font-size: 18px;
@@ -1159,6 +1184,14 @@ html, body {
   margin-left: 10px;
   font-size: 11px;
   color: var(--cap-color);
+  font-style: italic;
+}
+.honesty-hint {
+  display: block;
+  margin-top: 10px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--text-faint);
   font-style: italic;
 }
 .write-inner.drag-over {
