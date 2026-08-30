@@ -1,1 +1,1 @@
-Jeremy-1011/Journal-App-Ember
+Jeremy-1011/Ember--A-Local-First-Emotional-Computing-System-
