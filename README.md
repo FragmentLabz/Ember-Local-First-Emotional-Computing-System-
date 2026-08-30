@@ -42,8 +42,9 @@ Ember processes all emotional data entirely offline.
 Your emotional state never leaves your device.
 
 > These guarantees describe Ember as you run it yourself — the desktop app, or
-> the dev server on your own machine. A **hosted deployment is a different
-> thing**, and does not carry all of them. See [Hosted demo](#hosted-demo).
+> the dev server on your own machine. The [live demo](#live-demo) is a separate
+> static page: it keeps these properties (it has no backend at all), but it
+> only shows the mechanics, it is not the full application.
 
 ### How that is enforced
 
@@ -154,39 +155,14 @@ one it can't reach rather than starting in a degraded state.
 > .NET/Python installed separately is a planned follow-up, not done yet —
 > today this is a development-time setup.
 
-### Hosted demo
+### Live demo
 
-Ember can be deployed to an ordinary web host — there is a `vercel.json` for
-Vercel — but **a hosted deployment is not local-first, and the guarantees above
-do not all apply to it.**
+**<https://emberdemo-1.vercel.app/>**
 
-What still holds:
-
-- Entries are still stored only in the visitor's own browser, in IndexedDB.
-  There is no server-side database, and no entry is ever shared between
-  visitors.
-- Time Capsule encryption still happens in the visitor's browser. The
-  passphrase is never transmitted, and the server only ever sees ciphertext.
-
-What changes:
-
-- **Decay is computed on the server.** When a decaying entry is opened, the
-  page posts that entry's text to `/api/reflect/decay/render` to get back the
-  partly redacted version. On a hosted deployment, that text reaches the
-  server. (The other calls do not carry entry text — validation sends only the
-  entry type and its capsule/decay settings, and the decay batch check sends
-  only ids, timestamps and durations.)
-- **The validation engine is Python, not C#.** Hosts such as Vercel have no
-  .NET runtime, so `services/reflective-modules/validation.py` answers the
-  validation requests instead. It is a port of the C# rules, kept in step by
-  `services/reflective-modules/test_validation.py`, which mirrors
-  `ValidationEngineTests.cs` case for case.
-- **The host sees ordinary web traffic** — IP addresses, request logs — the
-  same as any website.
-
-So treat a deployment as a demo: something to click through to see the
-mechanics working. For private use, run the desktop app or the dev server on
-your own machine, where nothing leaves it.
+An interactive page showing the three mechanics — drag a slider to watch an
+entry decay, step through the time lock, and try to paste into the editor. It
+runs entirely in the browser: no services behind it, and nothing typed on the
+page is sent anywhere. Source in [`demo/`](demo/).
 
 ---
 
