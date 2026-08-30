@@ -16,18 +16,19 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-# Ember's "Reflective Modules" service. It works out how far entries have
-# decayed. It is bound to 127.0.0.1 only, so nothing here is reachable from
-# outside this machine.
+# Ember's local service. It works out how far entries have decayed, and (for
+# hosted deployments that cannot run .NET) also answers the validation-engine
+# requests. When Ember runs locally the C# engine handles validation instead.
 
 from typing import List, Optional
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from decay import get_decay_progress, render_decay_body
+from validation import can_modify, validate_entry
 
 HOST = "127.0.0.1"
 PORT = 8902
@@ -75,15 +76,36 @@ class RenderRequest(BaseModel):
     rich: Optional[bool] = False
 
 
-# --- Routes ----------------------------------------------------------------
+class CapsuleFields(BaseModel):
+    unlockAt: int
 
-@app.get("/health")
+
+class ValidateEntryRequest(BaseModel):
+    type: str
+    capsule: Optional[CapsuleFields] = None
+    decay: Optional[DecayConfig] = None
+
+
+class CanModifyRequest(BaseModel):
+    type: str
+    priorRevisit: bool = False
+    capsuleUnlockAt: Optional[int] = None
+
+
+# --- Routes ----------------------------------------------------------------
+# These go on a router so they can be registered twice below: once at the root
+# for local use, and once under /api for a hosted deployment.
+
+router = APIRouter()
+
+
+@router.get("/health")
 def health():
     """Used by the app at startup to check this service is running."""
     return {"status": "ok"}
 
 
-@app.post("/reflect/decay/batch")
+@router.post("/reflect/decay/batch")
 def decay_batch(req: BatchRequest):
     """Work out the decay progress for a whole list of entries at once."""
     results = {}
@@ -93,12 +115,39 @@ def decay_batch(req: BatchRequest):
     return {"results": results}
 
 
-@app.post("/reflect/decay/render")
+@router.post("/reflect/decay/render")
 def decay_render(req: RenderRequest):
     """Build the partly decayed HTML for one entry."""
     decay_settings = req.decay.model_dump()
     is_rich = bool(req.rich)
     return render_decay_body(req.createdAt, decay_settings, req.body, is_rich)
+
+
+@router.post("/validate/entry")
+def validate_entry_route(req: ValidateEntryRequest):
+    """Check an entry's settings. Mirrors the C# validation engine."""
+    capsule = None
+    if req.capsule:
+        capsule = req.capsule.model_dump()
+
+    decay = None
+    if req.decay:
+        decay = req.decay.model_dump()
+
+    return validate_entry(req.type, capsule, decay)
+
+
+@router.post("/validate/can-modify")
+def can_modify_route(req: CanModifyRequest):
+    """Decide whether an entry may be edited or deleted. Mirrors the C# engine."""
+    allowed = can_modify(req.type, req.priorRevisit, req.capsuleUnlockAt)
+    return {"allowed": allowed}
+
+
+# Local runs call these at the root. A hosted deployment puts the service
+# behind /api, and some hosts pass that prefix through, so accept both.
+app.include_router(router)
+app.include_router(router, prefix="/api")
 
 
 if __name__ == "__main__":
