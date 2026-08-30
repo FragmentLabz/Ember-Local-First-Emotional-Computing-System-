@@ -1,0 +1,46 @@
+# Publishes the static demo in demo/ to GitHub Pages on every push to main.
+#
+# One-time setup: in the repository, go to
+# Settings -> Pages -> Build and deployment -> Source, and choose
+# "GitHub Actions". Nothing else is needed; there are no secrets or tokens.
+
+name: Deploy demo
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'demo/**'
+      - '.github/workflows/deploy-demo.yml'
+  workflow_dispatch: {}
+
+# Lets the workflow publish to Pages without a personal access token.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# If two pushes land close together, let the newer one finish and win.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      # The demo is plain HTML, CSS and JavaScript, so there is nothing to
+      # build -- the folder is uploaded exactly as it is.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: demo
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
