@@ -16,8 +16,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+// The only bridge between the page and Electron. Anything not listed here is
+// simply not reachable from the page.
+
 const { contextBridge, ipcRenderer } = require('electron');
+
 contextBridge.exposeInMainWorld('emberAPI', {
-  spotifyAuth: (url) => ipcRenderer.invoke('spotify-auth', url),
-  isElectron: true,
+  spotifyAuth: function (url) {
+    return ipcRenderer.invoke('spotify-auth', url);
+  },
+  isElectron: true
 });

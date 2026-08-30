@@ -16,46 +16,82 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-# Emotional decay progress & rendering — a port of the app's former
-# src/decay.js, now living in the "Reflective Modules" service.
+# Emotional decay progress and rendering. This used to live in the app's
+# src/decay.js, and now runs in the "Reflective Modules" service.
 
+import html as html_lib
 import re
 import time
-import html as html_lib
+from typing import Optional
 
 DAY_MS = 86400000
 
+# Matches a whole run of spaces, tabs or newlines.
+SPACE_RE = re.compile(r"\s+")
 
-def get_decay_progress(created_at: int, decay: dict | None) -> dict:
+# Matches an HTML tag, e.g. <p> or </strong>.
+TAG_RE = re.compile(r"<[^>]+>")
+
+
+def get_decay_progress(created_at: int, decay: Optional[dict]) -> dict:
+    """Work out how far along an entry is, from 0 (new) to 1 (fully decayed)."""
     if not decay:
         return {"progress": 0, "fullyDecayed": False}
-    elapsed = time.time() * 1000 - created_at
+
+    now_ms = time.time() * 1000
+    elapsed = now_ms - created_at
     total = decay["durationDays"] * DAY_MS
-    progress = min(1.0, elapsed / total) if total > 0 else 1.0
+
+    if total > 0:
+        progress = elapsed / total
+        if progress > 1.0:
+            progress = 1.0
+    else:
+        # A duration of zero days means it is already gone.
+        progress = 1.0
+
     return {"progress": progress, "fullyDecayed": progress >= 1}
 
 
-def esc_html(s: str) -> str:
-    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+def esc_html(text: str) -> str:
+    """Make text safe to put inside HTML."""
+    text = text.replace("&", "&amp;")
+    text = text.replace("<", "&lt;")
+    text = text.replace(">", "&gt;")
+    return text
 
 
 def html_to_text(markup: str) -> str:
-    # No DOM available server-side, so rich bodies are flattened with a
-    # regex tag-strip + entity-unescape rather than a real textContent walk.
-    # Close enough for redaction purposes; not a byte-for-byte match for
-    # unusual markup (e.g. <br> does not become a space).
-    text = re.sub(r"<[^>]+>", "", markup)
+    """Strip the tags out of rich HTML so only the words are left.
+
+    There is no browser here, so this uses a regex instead of reading the text
+    the way a page would. It is close enough for redacting words, but it is not
+    an exact match for unusual markup (a <br> does not turn into a space).
+    """
+    text = TAG_RE.sub("", markup)
     return html_lib.unescape(text)
 
 
-def render_decay_body(created_at: int, decay: dict, body: str | None, rich: bool) -> dict:
-    status = get_decay_progress(created_at, decay)
-    progress, fully_decayed = status["progress"], status["fullyDecayed"]
+def is_space(piece: str) -> bool:
+    """True if this piece is only whitespace."""
+    if not piece:
+        return False
+    return SPACE_RE.fullmatch(piece) is not None
 
-    if fully_decayed:
+
+def render_decay_body(created_at: int, decay: dict, body: Optional[str], rich: bool) -> dict:
+    """Build the HTML for a decaying entry at its current stage."""
+    status = get_decay_progress(created_at, decay)
+    progress = status["progress"]
+
+    # Once it is fully decayed there is no body left, only the tombstone.
+    if status["fullyDecayed"]:
+        tombstone = decay.get("tombstone")
+        if not tombstone:
+            tombstone = None
         return {
             "html": "",
-            "tombstone": decay.get("tombstone") or None,
+            "tombstone": tombstone,
             "fullyDecayed": True,
             "progress": progress,
         }
@@ -63,46 +99,71 @@ def render_decay_body(created_at: int, decay: dict, body: str | None, rich: bool
     raw_body = body or ""
     mode = decay.get("mode", "words")
 
+    # "burn" mode keeps every word but fades the whole thing out.
     if mode == "burn":
         opacity = 1 - progress * 0.85
-        inner = raw_body if rich else esc_html(raw_body)
+        if rich:
+            inner = raw_body
+        else:
+            inner = esc_html(raw_body)
         return {
-            "html": f'<span style="opacity:{opacity:.3f}">{inner}</span>',
+            "html": '<span style="opacity:%.3f">%s</span>' % (opacity, inner),
             "tombstone": None,
             "fullyDecayed": False,
             "progress": progress,
         }
 
-    plain_body = html_to_text(raw_body) if rich else raw_body
+    if rich:
+        plain_body = html_to_text(raw_body)
+    else:
+        plain_body = raw_body
 
+    # "words" mode blanks out words from the end, working backwards.
     if mode == "words":
-        words = re.split(r"(\s+)", plain_body)
-        non_space = [w for w in words if not re.fullmatch(r"\s+", w or "")]
-        redact_count = int(progress * len(non_space))
-        redact_from = len(non_space) - redact_count
-        to_redact = set(range(redact_from, len(non_space)))
-
-        out = []
-        ns_idx = 0
-        for w in words:
-            if re.fullmatch(r"\s+", w or ""):
-                out.append(w)
-                continue
-            i = ns_idx
-            ns_idx += 1
-            if i in to_redact:
-                out.append(f'<span class="decay-redacted">{"█" * len(w)}</span>')
-            else:
-                out.append(esc_html(w))
-        return {
-            "html": "".join(out),
-            "tombstone": None,
-            "fullyDecayed": False,
-            "progress": progress,
-        }
+        return render_words_mode(plain_body, progress)
 
     return {
         "html": esc_html(plain_body),
+        "tombstone": None,
+        "fullyDecayed": False,
+        "progress": progress,
+    }
+
+
+def render_words_mode(plain_body: str, progress: float) -> dict:
+    """Replace the last words with blocks, in step with how far decay has got."""
+    # Splitting on a capturing group keeps the spaces, so the text can be put
+    # back together exactly as it was.
+    pieces = re.split(r"(\s+)", plain_body)
+
+    # Count the real words, ignoring the spacing between them.
+    word_count = 0
+    for piece in pieces:
+        if not is_space(piece):
+            word_count += 1
+
+    # Everything from this word onwards gets blanked out.
+    redact_count = int(progress * word_count)
+    redact_from = word_count - redact_count
+
+    out = []
+    word_index = 0
+
+    for piece in pieces:
+        if is_space(piece):
+            out.append(piece)
+            continue
+
+        if word_index >= redact_from:
+            blocks = "█" * len(piece)
+            out.append('<span class="decay-redacted">%s</span>' % blocks)
+        else:
+            out.append(esc_html(piece))
+
+        word_index += 1
+
+    return {
+        "html": "".join(out),
         "tombstone": None,
         "fullyDecayed": False,
         "progress": progress,

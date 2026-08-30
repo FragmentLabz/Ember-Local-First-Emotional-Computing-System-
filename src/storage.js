@@ -16,60 +16,95 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// IndexedDB storage for ember entries
+// IndexedDB storage for ember entries.
+// Everything is kept in the browser on this machine. Nothing is uploaded.
 
 const DB_NAME = 'ember-journal';
-const DB_VER  = 1;
-const STORE   = 'entries';
+const DB_VERSION = 1;
+const STORE_NAME = 'entries';
 
-let _db = null;
+// Once the database is open we hang on to it instead of reopening every time.
+let openedDb = null;
 
 function openDB() {
-  if (_db) return Promise.resolve(_db);
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VER);
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(STORE)) {
-        const store = db.createObjectStore(STORE, { keyPath: 'id' });
+  if (openedDb !== null) {
+    return Promise.resolve(openedDb);
+  }
+
+  return new Promise(function (resolve, reject) {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    // Runs only the first time, or when DB_VERSION goes up.
+    request.onupgradeneeded = function (event) {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
         store.createIndex('createdAt', 'createdAt');
       }
     };
-    req.onsuccess = e => { _db = e.target.result; resolve(_db); };
-    req.onerror   = e => reject(e.target.error);
+
+    request.onsuccess = function (event) {
+      openedDb = event.target.result;
+      resolve(openedDb);
+    };
+
+    request.onerror = function (event) {
+      reject(event.target.error);
+    };
   });
 }
 
 export async function saveEntry(entry) {
   const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).put(entry);
-    tx.oncomplete = () => resolve(entry);
-    tx.onerror    = e => reject(e.target.error);
+  return new Promise(function (resolve, reject) {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(entry);
+    tx.oncomplete = function () {
+      resolve(entry);
+    };
+    tx.onerror = function (event) {
+      reject(event.target.error);
+    };
   });
 }
 
 export async function loadEntries() {
   const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readonly');
-    const req = tx.objectStore(STORE).index('createdAt').getAll();
-    req.onsuccess = e => resolve(e.target.result.reverse());
-    req.onerror   = e => reject(e.target.error);
+  return new Promise(function (resolve, reject) {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const request = store.index('createdAt').getAll();
+
+    request.onsuccess = function (event) {
+      // getAll() gives oldest first, but the timeline shows newest first.
+      const rows = event.target.result;
+      rows.reverse();
+      resolve(rows);
+    };
+
+    request.onerror = function (event) {
+      reject(event.target.error);
+    };
   });
 }
 
 export async function deleteEntry(id) {
   const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).delete(id);
-    tx.oncomplete = () => resolve();
-    tx.onerror    = e => reject(e.target.error);
+  return new Promise(function (resolve, reject) {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete(id);
+    tx.oncomplete = function () {
+      resolve();
+    };
+    tx.onerror = function (event) {
+      reject(event.target.error);
+    };
   });
 }
 
+// A simple unique id: the current time plus a few random characters.
 export function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+  const timePart = Date.now().toString(36);
+  const randomPart = Math.random().toString(36).slice(2);
+  return timePart + randomPart;
 }
