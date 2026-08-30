@@ -5,6 +5,11 @@ node_modules/
 dist/
 tmp/
 
+# python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
 # local env
 .env
 .env.local
