@@ -82,9 +82,9 @@ colour on the timeline.
 
 ## Category King
 
-Ember is the first implementation of Emotional Computing Systems and the reference
+Ember is the first implementation of Emotional Computing System and the reference
 architecture for this new field. It defines the terminology, mechanics, and
-computational model that future systems will follow. Ember's emotional mechanics,
+computational model that future system will follow. Ember's emotional mechanics,
 validation loops, and local-first design establish the foundational structure for this
 new category of cognitive software.
 
@@ -92,7 +92,7 @@ new category of cognitive software.
 
 The full technical framework is documented in the whitepaper:
 
-> *"Emotional Computing Systems: A Technical Framework for Computational Emotional
+> *"Emotional Computing System: A Technical Framework for Computational Emotional
 > Mechanics."*
 
 ---
