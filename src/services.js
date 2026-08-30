@@ -16,83 +16,114 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// Client for Ember's two local-only backend services: the C# validation
-// engine (time-lock enforcement, entry-shape validation) and the Python
-// reflective-modules service (emotional decay). Both are 127.0.0.1-only —
-// nothing here ever reaches the network beyond this machine.
+// Talks to Ember's two local-only backend services: the C# validation engine
+// (time-lock enforcement, entry-shape checks) and the Python reflective-modules
+// service (emotional decay). Both live on 127.0.0.1, so nothing here ever
+// leaves this machine.
 
 const VALIDATION_URL = 'http://127.0.0.1:8901';
 const REFLECTIVE_URL = 'http://127.0.0.1:8902';
 const TIMEOUT_MS = 4000;
 
-async function withTimeout(fn) {
+// Sends a POST with a JSON body and gives back the parsed JSON reply.
+// If the service does not answer within TIMEOUT_MS the request is cancelled.
+async function postJSON(baseUrl, path, body) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(function () {
+    controller.abort();
+  }, TIMEOUT_MS);
+
   try {
-    return await fn(controller.signal);
+    const response = await fetch(baseUrl + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      throw new Error(path + ' responded ' + response.status);
+    }
+    return await response.json();
+  } finally {
+    // Always clear the timer, whether the request worked or failed.
+    clearTimeout(timer);
+  }
+}
+
+// Asks a service if it is running. Returns true or false, never throws.
+async function isHealthy(baseUrl) {
+  const controller = new AbortController();
+  const timer = setTimeout(function () {
+    controller.abort();
+  }, TIMEOUT_MS);
+
+  try {
+    const response = await fetch(baseUrl + '/health', { signal: controller.signal });
+    return response.ok;
+  } catch (err) {
+    // Not running, or took too long to answer.
+    return false;
   } finally {
     clearTimeout(timer);
   }
 }
 
-async function postJSON(base, path, body) {
-  return withTimeout(async signal => {
-    const res = await fetch(`${base}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal,
-    });
-    if (!res.ok) throw new Error(`${path} responded ${res.status}`);
-    return res.json();
-  });
-}
-
-async function isHealthy(base) {
-  try {
-    return await withTimeout(async signal => {
-      const res = await fetch(`${base}/health`, { signal });
-      return res.ok;
-    });
-  } catch {
-    return false;
-  }
-}
-
 export async function checkServices() {
-  const [validation, reflective] = await Promise.all([
-    isHealthy(VALIDATION_URL),
-    isHealthy(REFLECTIVE_URL),
-  ]);
-  return { validation, reflective, ok: validation && reflective };
+  const validation = await isHealthy(VALIDATION_URL);
+  const reflective = await isHealthy(REFLECTIVE_URL);
+  return {
+    validation: validation,
+    reflective: reflective,
+    ok: validation && reflective
+  };
 }
 
 export function validateEntry(entry) {
   const payload = { type: entry.type };
-  if (entry.capsule) payload.capsule = { unlockAt: entry.capsule.unlockAt };
-  if (entry.decay) payload.decay = { durationDays: entry.decay.durationDays, mode: entry.decay.mode };
+
+  if (entry.capsule) {
+    payload.capsule = { unlockAt: entry.capsule.unlockAt };
+  }
+  if (entry.decay) {
+    payload.decay = {
+      durationDays: entry.decay.durationDays,
+      mode: entry.decay.mode
+    };
+  }
+
   return postJSON(VALIDATION_URL, '/validate/entry', payload);
 }
 
 export async function checkCanModify(entry) {
-  const { allowed } = await postJSON(VALIDATION_URL, '/validate/can-modify', {
+  // Capsules also need their unlock date checked; other types do not.
+  let capsuleUnlockAt = null;
+  if (entry.type === 'capsule' && entry.capsule && entry.capsule.unlockAt !== undefined) {
+    capsuleUnlockAt = entry.capsule.unlockAt;
+  }
+
+  const reply = await postJSON(VALIDATION_URL, '/validate/can-modify', {
     type: entry.type,
-    priorRevisit: !!entry._priorRevisit,
-    capsuleUnlockAt: entry.type === 'capsule' ? (entry.capsule?.unlockAt ?? null) : null,
+    priorRevisit: entry._priorRevisit ? true : false,
+    capsuleUnlockAt: capsuleUnlockAt
   });
-  return allowed;
+
+  return reply.allowed;
 }
 
 export async function fetchDecayBatch(decayingEntries) {
-  const payload = {
-    entries: decayingEntries.map(e => ({
-      id: e.id,
-      createdAt: e.createdAt,
-      decay: { durationDays: e.decay.durationDays },
-    })),
-  };
-  const { results } = await postJSON(REFLECTIVE_URL, '/reflect/decay/batch', payload);
-  return results;
+  // Send only the fields the service needs, not the whole entry.
+  const list = [];
+  for (let i = 0; i < decayingEntries.length; i++) {
+    const entry = decayingEntries[i];
+    list.push({
+      id: entry.id,
+      createdAt: entry.createdAt,
+      decay: { durationDays: entry.decay.durationDays }
+    });
+  }
+
+  const reply = await postJSON(REFLECTIVE_URL, '/reflect/decay/batch', { entries: list });
+  return reply.results;
 }
 
 export function renderDecayEntry(entry) {
@@ -100,6 +131,6 @@ export function renderDecayEntry(entry) {
     createdAt: entry.createdAt,
     decay: entry.decay,
     body: entry.body || '',
-    rich: !!entry.rich,
+    rich: entry.rich ? true : false
   });
 }

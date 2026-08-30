@@ -16,103 +16,139 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// AES-GCM encryption using Web Crypto API
-// Key derived via PBKDF2 from a passphrase (unlock date string)
+// AES-GCM encryption using the Web Crypto API.
+// The key is worked out from a passphrase (the unlock date string) with PBKDF2.
 
-export async function deriveKey(passphrase, saltBytes) {
-  const enc = new TextEncoder();
+// How many times PBKDF2 stretches the passphrase. Higher is slower to attack.
+const PBKDF2_ROUNDS = 200000;
+
+// Turns a passphrase into an AES key. `usages` says what the key is allowed
+// to do, for example ['encrypt'] or ['decrypt'].
+async function makeKey(passphrase, saltBytes, usages) {
+  const encoder = new TextEncoder();
+  const passphraseBytes = encoder.encode(passphrase);
+
+  // Step 1: hand the raw passphrase bytes to Web Crypto.
   const keyMaterial = await crypto.subtle.importKey(
-    'raw', enc.encode(passphrase), { name: 'PBKDF2' }, false, ['deriveKey']
+    'raw',
+    passphraseBytes,
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
   );
+
+  // Step 2: stretch it into a real 256-bit AES key.
+  const settings = {
+    name: 'PBKDF2',
+    salt: saltBytes,
+    iterations: PBKDF2_ROUNDS,
+    hash: 'SHA-256'
+  };
   return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt: saltBytes, iterations: 200000, hash: 'SHA-256' },
+    settings,
     keyMaterial,
     { name: 'AES-GCM', length: 256 },
     false,
-    ['encrypt', 'decrypt']
+    usages
   );
+}
+
+export async function deriveKey(passphrase, saltBytes) {
+  return makeKey(passphrase, saltBytes, ['encrypt', 'decrypt']);
 }
 
 export async function encrypt(text, passphrase) {
-  const enc = new TextEncoder();
+  const encoder = new TextEncoder();
+
+  // A fresh salt and IV every time, so the same text never encrypts the same way.
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv   = crypto.getRandomValues(new Uint8Array(12));
-  const key  = await deriveKey(passphrase, salt);
-  const cipherBuf = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+
+  const key = await makeKey(passphrase, salt, ['encrypt']);
+  const cipherBuffer = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: iv },
     key,
-    enc.encode(text)
+    encoder.encode(text)
   );
+
   return {
-    salt: buf2hex(salt),
-    iv:   buf2hex(iv),
-    ciphertext: buf2hex(new Uint8Array(cipherBuf)),
+    salt: bytesToHex(salt),
+    iv: bytesToHex(iv),
+    ciphertext: bytesToHex(new Uint8Array(cipherBuffer))
   };
 }
 
-export async function decrypt({ salt, iv, ciphertext }, passphrase) {
-  const key = await deriveKey(hex2buf(salt), hex2buf(salt));
-  // Re-derive with correct salt
-  const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw', enc.encode(passphrase), { name: 'PBKDF2' }, false, ['deriveKey']
+export async function decrypt(encrypted, passphrase) {
+  // `encrypted` is what encrypt() gave back: salt, iv and ciphertext as hex.
+  const salt = hexToBytes(encrypted.salt);
+  const iv = hexToBytes(encrypted.iv);
+  const ciphertext = hexToBytes(encrypted.ciphertext);
+
+  const key = await makeKey(passphrase, salt, ['decrypt']);
+  const plainBuffer = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: iv },
+    key,
+    ciphertext
   );
-  const derivedKey = await crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt: hex2buf(salt), iterations: 200000, hash: 'SHA-256' },
-    keyMaterial,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['decrypt']
-  );
-  const plain = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: hex2buf(iv) },
-    derivedKey,
-    hex2buf(ciphertext)
-  );
-  return new TextDecoder().decode(plain);
+
+  return new TextDecoder().decode(plainBuffer);
 }
 
-// ─── Binary encryption (for file attachments in time capsules) ──────────────
+// --- Binary encryption (for file attachments in time capsules) --------------
+
 export async function encryptBytes(bytes, passphrase) {
-  const enc  = new TextEncoder();
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv   = crypto.getRandomValues(new Uint8Array(12));
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw', enc.encode(passphrase), { name: 'PBKDF2' }, false, ['deriveKey']
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+
+  const key = await makeKey(passphrase, salt, ['encrypt']);
+  const cipherBuffer = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: iv },
+    key,
+    bytes
   );
-  const key = await crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' },
-    keyMaterial,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt']
-  );
-  const cipherBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, bytes);
-  return { salt: buf2hex(salt), iv: buf2hex(iv), cipher: new Uint8Array(cipherBuf) };
+
+  return {
+    salt: bytesToHex(salt),
+    iv: bytesToHex(iv),
+    cipher: new Uint8Array(cipherBuffer)
+  };
 }
 
-export async function decryptBytes({ salt, iv, cipher }, passphrase) {
-  const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw', enc.encode(passphrase), { name: 'PBKDF2' }, false, ['deriveKey']
+export async function decryptBytes(encrypted, passphrase) {
+  const salt = hexToBytes(encrypted.salt);
+  const iv = hexToBytes(encrypted.iv);
+
+  const key = await makeKey(passphrase, salt, ['decrypt']);
+  const plainBuffer = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: iv },
+    key,
+    encrypted.cipher
   );
-  const key = await crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt: hex2buf(salt), iterations: 200000, hash: 'SHA-256' },
-    keyMaterial,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['decrypt']
-  );
-  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: hex2buf(iv) }, key, cipher);
-  return new Uint8Array(plain);
+
+  return new Uint8Array(plainBuffer);
 }
 
-function buf2hex(buf) {
-  return Array.from(buf).map(b => b.toString(16).padStart(2,'0')).join('');
+// --- Hex helpers ------------------------------------------------------------
+
+// Turns bytes into a hex string, two characters per byte.
+function bytesToHex(bytes) {
+  let hex = '';
+  for (let i = 0; i < bytes.length; i++) {
+    let piece = bytes[i].toString(16);
+    if (piece.length < 2) {
+      piece = '0' + piece;
+    }
+    hex = hex + piece;
+  }
+  return hex;
 }
 
-function hex2buf(hex) {
-  const arr = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < arr.length; i++) arr[i] = parseInt(hex.slice(i*2, i*2+2), 16);
-  return arr;
+// Turns a hex string back into bytes.
+function hexToBytes(hex) {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    const pair = hex.slice(i * 2, i * 2 + 2);
+    bytes[i] = parseInt(pair, 16);
+  }
+  return bytes;
 }
