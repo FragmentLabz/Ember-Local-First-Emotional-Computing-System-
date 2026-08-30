@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- ember demo - a local-first emotional computing system.
+       Copyright (C) 2026 Jeremiah Ayeni <https://github.com/Jeremy-1011>
+       SPDX-License-Identifier: AGPL-3.0-or-later -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ember — Emotional Computing Demo</title>
+  <meta name="description" content="An interactive demo of Ember's three emotional mechanics: emotional decay, time-lock revisitation and honesty constraints.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="embers"></canvas>
+
+  <header class="site-header">
+    <div class="logo"><span class="spark">&#10022;</span> ember</div>
+    <span class="demo-tag">interactive demo</span>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>Emotional Computing Systems</h1>
+      <p class="hero-sub">
+        Ember models emotional process through deterministic mechanics rather than
+        interpretation. Three of them are below. Each one is live &mdash; try it.
+      </p>
+      <p class="hero-note">
+        Everything on this page runs in your browser. Nothing you type is sent anywhere.
+      </p>
+    </section>
+
+    <!-- 1 ------------------------------------------------------------------ -->
+    <section class="mech" id="mech-decay">
+      <div class="mech-head">
+        <span class="mech-num">01</span>
+        <h2>Emotional Decay</h2>
+      </div>
+      <p class="mech-desc">
+        Emotional intensity reduces over time. An entry is not permanent, which
+        removes the fear of digital permanency and lets expression stay raw.
+        Words are redacted from the end as the entry ages &mdash; or the whole
+        entry fades, depending on the mode.
+      </p>
+
+      <div class="panel">
+        <div class="panel-body" id="decay-output"></div>
+
+        <div class="controls">
+          <div class="control">
+            <label for="decay-slider">
+              Time elapsed &mdash; <strong id="decay-days-label">0 days</strong> of 30
+            </label>
+            <input type="range" id="decay-slider" min="0" max="30" value="0" step="1">
+          </div>
+          <div class="control control-inline">
+            <span class="control-label">Mode</span>
+            <div class="seg">
+              <button class="seg-btn active" data-mode="words">words</button>
+              <button class="seg-btn" data-mode="burn">burn</button>
+            </div>
+          </div>
+        </div>
+
+        <p class="panel-foot">
+          Drag the slider to move through time. In the real app this happens over
+          days, computed from the entry's creation date every time it is opened.
+        </p>
+      </div>
+    </section>
+
+    <!-- 2 ------------------------------------------------------------------ -->
+    <section class="mech" id="mech-lock">
+      <div class="mech-head">
+        <span class="mech-num">02</span>
+        <h2>Time-Lock Revisitation</h2>
+      </div>
+      <p class="mech-desc">
+        An entry cannot be edited or deleted until it has been revisited on a
+        <em>separate, later</em> visit. You cannot write something raw and erase it
+        an hour later. Avoidance is confronted rather than accommodated.
+      </p>
+
+      <div class="panel">
+        <div class="lock-entry">
+          <div class="lock-title">The thing I have not said out loud</div>
+          <div class="lock-date">written 12 Aug 2026</div>
+          <p class="lock-body">
+            I keep telling people I am fine because the alternative is a
+            conversation I do not know how to start.
+          </p>
+        </div>
+
+        <div class="lock-state">
+          <div class="lock-steps">
+            <div class="step" data-step="0"><span class="dot"></span>Written</div>
+            <div class="step" data-step="1"><span class="dot"></span>First revisit</div>
+            <div class="step" data-step="2"><span class="dot"></span>Later revisit</div>
+          </div>
+          <p class="lock-explain" id="lock-explain"></p>
+        </div>
+
+        <div class="lock-actions">
+          <button class="btn btn-danger" id="lock-delete" disabled>&#128465; delete</button>
+          <button class="btn btn-ghost" id="lock-edit" disabled>&#9998; edit</button>
+          <button class="btn btn-primary" id="lock-visit">close &amp; come back later</button>
+          <button class="btn btn-quiet" id="lock-reset">reset</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 ------------------------------------------------------------------ -->
+    <section class="mech" id="mech-honesty">
+      <div class="mech-head">
+        <span class="mech-num">03</span>
+        <h2>Honesty Constraints</h2>
+      </div>
+      <p class="mech-desc">
+        Pasting lets you filter and pre-edit a thought somewhere else before it
+        ever reaches the page. Composition accepts typing only, which reduces
+        the cognitive distortion that rewriting introduces.
+      </p>
+
+      <div class="panel">
+        <div class="editor" id="honesty-editor" contenteditable="true" spellcheck="false"
+             data-placeholder="Type here. Then try to paste something."></div>
+        <div class="honesty-bar">
+          <span class="honesty-hint">honesty constraint &mdash; paste is disabled</span>
+          <span class="blocked-count" id="blocked-count">0 paste attempts blocked</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="closing">
+      <h2>What this is</h2>
+      <p>
+        Ember is the reference implementation of Emotional Computing Systems: a
+        class of cognitive software built on computational emotional mechanics.
+        The full app is local-first and encrypted, with entries stored only on
+        your own device.
+      </p>
+      <p class="closing-links">
+        <a href="https://github.com/Jeremy-1011/Ember--A-Local-First-Emotional-Computing-System-" target="_blank" rel="noopener noreferrer">Source code</a>
+        <span class="sep">&middot;</span>
+        <span class="lic">GNU AGPL v3 or later</span>
+      </p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>
+      This is a demonstration page. The full Ember application is a local-first
+      desktop app &mdash; it stores entries in your own browser or machine, with
+      AES-GCM encryption for sealed entries, and no cloud execution.
+    </p>
+    <p class="copyright">
+      Copyright &copy; 2026 Jeremiah Ayeni. Free software under the GNU AGPL v3 or later.
+    </p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
