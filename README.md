@@ -41,6 +41,10 @@ Ember processes all emotional data entirely offline.
 
 Your emotional state never leaves your device.
 
+> These guarantees describe Ember as you run it yourself — the desktop app, or
+> the dev server on your own machine. A **hosted deployment is a different
+> thing**, and does not carry all of them. See [Hosted demo](#hosted-demo).
+
 ### How that is enforced
 
 - All data lives in browser IndexedDB — nothing leaves your machine
@@ -149,6 +153,40 @@ one it can't reach rather than starting in a degraded state.
 > Packaging these services into the Electron build so end users don't need
 > .NET/Python installed separately is a planned follow-up, not done yet —
 > today this is a development-time setup.
+
+### Hosted demo
+
+Ember can be deployed to an ordinary web host — there is a `vercel.json` for
+Vercel — but **a hosted deployment is not local-first, and the guarantees above
+do not all apply to it.**
+
+What still holds:
+
+- Entries are still stored only in the visitor's own browser, in IndexedDB.
+  There is no server-side database, and no entry is ever shared between
+  visitors.
+- Time Capsule encryption still happens in the visitor's browser. The
+  passphrase is never transmitted, and the server only ever sees ciphertext.
+
+What changes:
+
+- **Decay is computed on the server.** When a decaying entry is opened, the
+  page posts that entry's text to `/api/reflect/decay/render` to get back the
+  partly redacted version. On a hosted deployment, that text reaches the
+  server. (The other calls do not carry entry text — validation sends only the
+  entry type and its capsule/decay settings, and the decay batch check sends
+  only ids, timestamps and durations.)
+- **The validation engine is Python, not C#.** Hosts such as Vercel have no
+  .NET runtime, so `services/reflective-modules/validation.py` answers the
+  validation requests instead. It is a port of the C# rules, kept in step by
+  `services/reflective-modules/test_validation.py`, which mirrors
+  `ValidationEngineTests.cs` case for case.
+- **The host sees ordinary web traffic** — IP addresses, request logs — the
+  same as any website.
+
+So treat a deployment as a demo: something to click through to see the
+mechanics working. For private use, run the desktop app or the dev server on
+your own machine, where nothing leaves it.
 
 ---
 
