@@ -16,14 +16,38 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// Talks to Ember's two local-only backend services: the C# validation engine
-// (time-lock enforcement, entry-shape checks) and the Python reflective-modules
-// service (emotional decay). Both live on 127.0.0.1, so nothing here ever
-// leaves this machine.
+// Talks to Ember's two backend services: the validation engine (time-lock
+// enforcement, entry-shape checks) and the reflective-modules service
+// (emotional decay).
+//
+// Running locally -- the desktop app, or `npm run dev` -- both services are
+// separate processes on 127.0.0.1, and nothing ever leaves this machine.
+//
+// On a hosted deployment there is no .NET runtime, so one Python service
+// answers both sets of requests behind /api. See vercel.json.
 
-const VALIDATION_URL = 'http://127.0.0.1:8901';
-const REFLECTIVE_URL = 'http://127.0.0.1:8902';
+const LOCAL_VALIDATION_URL = 'http://127.0.0.1:8901';
+const LOCAL_REFLECTIVE_URL = 'http://127.0.0.1:8902';
+const HOSTED_URL = '/api';
 const TIMEOUT_MS = 4000;
+
+// True when the page is the desktop app (a file:// page, so no hostname) or is
+// being served from this machine.
+function isRunningLocally() {
+  const host = window.location.hostname;
+  return host === '' || host === 'localhost' || host === '127.0.0.1';
+}
+
+let VALIDATION_URL;
+let REFLECTIVE_URL;
+
+if (isRunningLocally()) {
+  VALIDATION_URL = LOCAL_VALIDATION_URL;
+  REFLECTIVE_URL = LOCAL_REFLECTIVE_URL;
+} else {
+  VALIDATION_URL = HOSTED_URL;
+  REFLECTIVE_URL = HOSTED_URL;
+}
 
 // Sends a POST with a JSON body and gives back the parsed JSON reply.
 // If the service does not answer within TIMEOUT_MS the request is cancelled.

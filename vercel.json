@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "frontend": {
+      "root": ".",
+      "framework": "vite",
+      "path": "/"
+    },
+    "reflective-modules": {
+      "root": "services/reflective-modules",
+      "framework": "fastapi",
+      "path": "/api"
+    }
+  }
+}
