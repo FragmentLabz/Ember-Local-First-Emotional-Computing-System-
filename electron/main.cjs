@@ -18,71 +18,109 @@
 
 const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron');
 const path = require('path');
-const { version } = require('../package.json');
+const packageJson = require('../package.json');
+
+const APP_VERSION = packageJson.version;
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1000, height: 720,
-    minWidth: 520, minHeight: 500,
+    width: 1000,
+    height: 720,
+    minWidth: 520,
+    minHeight: 500,
     backgroundColor: '#070503',
     webPreferences: {
+      // The page cannot use Node directly. Everything it is allowed to do
+      // goes through preload.cjs instead.
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.cjs'),
+      preload: path.join(__dirname, 'preload.cjs')
     },
-    show: false,
+    // Stay hidden until the page has painted, to avoid a white flash.
+    show: false
   });
 
   win.loadFile(path.join(__dirname, '../dist/index.html'));
-  win.once('ready-to-show', () => win.show());
 
-  // Links in the About panel (and anywhere else) open in the user's browser
-  // rather than in a bare Electron window.
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https://')) shell.openExternal(url);
+  win.once('ready-to-show', function () {
+    win.show();
+  });
+
+  // Links in the About panel (and anywhere else) open in the user's own
+  // browser rather than in a bare Electron window.
+  win.webContents.setWindowOpenHandler(function (details) {
+    if (details.url.startsWith('https://')) {
+      shell.openExternal(details.url);
+    }
     return { action: 'deny' };
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(function () {
   // Authorship shown by the operating system's own About panel.
   app.setAboutPanelOptions({
     applicationName: 'ember',
-    applicationVersion: version,
-    copyright: 'Copyright \u00A9 2026 Jeremiah Ayeni\nLicensed under the GNU AGPL v3 or later.',
+    applicationVersion: APP_VERSION,
+    copyright: 'Copyright © 2026 Jeremiah Ayeni\nLicensed under the GNU AGPL v3 or later.',
     authors: ['Jeremiah Ayeni'],
-    website: 'https://github.com/Jeremy-1011',
+    website: 'https://github.com/Jeremy-1011'
   });
 
   Menu.setApplicationMenu(null);
   createWindow();
 });
 
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('window-all-closed', function () {
+  // On macOS apps normally stay open when their windows close.
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
 
-ipcMain.handle('spotify-auth', (_, authUrl) => {
-  return new Promise((resolve) => {
-    let settled = false;
-    const finish = (code) => {
-      if (settled) return; settled = true;
-      if (authWin && !authWin.isDestroyed()) authWin.destroy();
-      authWin = null;
-      resolve(code || null);
-    };
+// Opens the Spotify login in its own window and waits for the redirect back
+// to 127.0.0.1:8888, which carries the code we need.
+ipcMain.handle('spotify-auth', function (event, authUrl) {
+  return new Promise(function (resolve) {
     let authWin = new BrowserWindow({
-      width: 480, height: 680,
+      width: 480,
+      height: 680,
       backgroundColor: '#121212',
       autoHideMenuBar: true,
-      webPreferences: { nodeIntegration: false, contextIsolation: true },
+      webPreferences: { nodeIntegration: false, contextIsolation: true }
     });
-    const check = (_, url) => {
-      if (!url.startsWith('http://127.0.0.1:8888')) return;
-      finish(new URL(url).searchParams.get('code'));
-    };
+
+    // The redirect can fire more than one event, and the user might also just
+    // close the window, so only the first answer counts.
+    let settled = false;
+
+    function finish(code) {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (authWin && !authWin.isDestroyed()) {
+        authWin.destroy();
+      }
+      authWin = null;
+      resolve(code || null);
+    }
+
+    function check(checkEvent, url) {
+      if (!url.startsWith('http://127.0.0.1:8888')) {
+        return;
+      }
+      const code = new URL(url).searchParams.get('code');
+      finish(code);
+    }
+
     authWin.webContents.on('will-redirect', check);
     authWin.webContents.on('will-navigate', check);
     authWin.webContents.on('did-navigate', check);
+
+    authWin.on('closed', function () {
+      finish(null);
+    });
+
     authWin.loadURL(authUrl);
-    authWin.on('closed', () => finish(null));
   });
 });

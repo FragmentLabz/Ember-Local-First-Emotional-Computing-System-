@@ -16,10 +16,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-# Ember's "Reflective Modules" — non-interpretive decay processing, kept
-# local-only (bound to 127.0.0.1, no external network).
+# Ember's "Reflective Modules" service. It works out how far entries have
+# decayed. It is bound to 127.0.0.1 only, so nothing here is reachable from
+# outside this machine.
 
-from typing import Optional
+from typing import List, Optional
 
 import uvicorn
 from fastapi import FastAPI
@@ -28,16 +29,28 @@ from pydantic import BaseModel
 
 from decay import get_decay_progress, render_decay_body
 
+HOST = "127.0.0.1"
+PORT = 8902
+
 app = FastAPI()
 
-# Vite dev server + Electron's file:// pages (which send Origin: null).
+# The Vite dev server, plus Electron's file:// pages, which send "null".
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "null",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "null"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+# --- Request shapes --------------------------------------------------------
+# FastAPI uses these classes to check incoming JSON before it reaches us.
 
 class DecayConfig(BaseModel):
     durationDays: int
@@ -52,7 +65,7 @@ class BatchEntry(BaseModel):
 
 
 class BatchRequest(BaseModel):
-    entries: list[BatchEntry]
+    entries: List[BatchEntry]
 
 
 class RenderRequest(BaseModel):
@@ -62,24 +75,31 @@ class RenderRequest(BaseModel):
     rich: Optional[bool] = False
 
 
+# --- Routes ----------------------------------------------------------------
+
 @app.get("/health")
 def health():
+    """Used by the app at startup to check this service is running."""
     return {"status": "ok"}
 
 
 @app.post("/reflect/decay/batch")
 def decay_batch(req: BatchRequest):
-    results = {
-        entry.id: get_decay_progress(entry.createdAt, entry.decay.model_dump())
-        for entry in req.entries
-    }
+    """Work out the decay progress for a whole list of entries at once."""
+    results = {}
+    for entry in req.entries:
+        decay_settings = entry.decay.model_dump()
+        results[entry.id] = get_decay_progress(entry.createdAt, decay_settings)
     return {"results": results}
 
 
 @app.post("/reflect/decay/render")
 def decay_render(req: RenderRequest):
-    return render_decay_body(req.createdAt, req.decay.model_dump(), req.body, bool(req.rich))
+    """Build the partly decayed HTML for one entry."""
+    decay_settings = req.decay.model_dump()
+    is_rich = bool(req.rich)
+    return render_decay_body(req.createdAt, decay_settings, req.body, is_rich)
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8902)
+    uvicorn.run(app, host=HOST, port=PORT)

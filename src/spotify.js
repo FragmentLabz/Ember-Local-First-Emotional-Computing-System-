@@ -16,28 +16,43 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// Spotify PKCE OAuth + API helpers
+// Spotify login (PKCE) and the few API calls Ember needs.
 
 const CLIENT_ID = 'YOUR_CLIENT_ID_HERE';
 const REDIRECT_URI = 'http://127.0.0.1:8888/callback';
 const SCOPES = 'user-read-currently-playing user-read-playback-state';
 
+// Spotify wants base64 in a URL-safe form: no +, no / and no trailing =.
+function base64Url(bytes) {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary = binary + String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+}
+
+// The verifier is a random secret we keep; the challenge is its hash, which is
+// what we send to Spotify. This is what makes PKCE safe without a client secret.
 function generateCodeVerifier() {
-  const arr = new Uint8Array(64);
-  crypto.getRandomValues(arr);
-  return btoa(String.fromCharCode(...arr)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  const randomBytes = new Uint8Array(64);
+  crypto.getRandomValues(randomBytes);
+  return base64Url(randomBytes);
 }
 
 async function generateCodeChallenge(verifier) {
   const data = new TextEncoder().encode(verifier);
   const digest = await crypto.subtle.digest('SHA-256', data);
-  return btoa(String.fromCharCode(...new Uint8Array(digest)))
-    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  return base64Url(new Uint8Array(digest));
 }
 
 export async function startAuth() {
   const verifier = generateCodeVerifier();
   const challenge = await generateCodeChallenge(verifier);
+
+  // Kept until the redirect comes back, then used to prove we started this login.
   sessionStorage.setItem('spotify_verifier', verifier);
 
   const params = new URLSearchParams({
@@ -46,44 +61,57 @@ export async function startAuth() {
     redirect_uri: REDIRECT_URI,
     scope: SCOPES,
     code_challenge_method: 'S256',
-    code_challenge: challenge,
+    code_challenge: challenge
   });
-  return `https://accounts.spotify.com/authorize?${params}`;
+
+  return 'https://accounts.spotify.com/authorize?' + params;
 }
 
 export async function exchangeCode(code) {
   const verifier = sessionStorage.getItem('spotify_verifier');
-  const res = await fetch('https://accounts.spotify.com/api/token', {
+
+  const response = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       client_id: CLIENT_ID,
       grant_type: 'authorization_code',
-      code,
+      code: code,
       redirect_uri: REDIRECT_URI,
-      code_verifier: verifier,
-    }),
+      code_verifier: verifier
+    })
   });
-  if (!res.ok) throw new Error('Token exchange failed');
-  const data = await res.json();
+
+  if (!response.ok) {
+    throw new Error('Token exchange failed');
+  }
+
+  const data = await response.json();
   storeTokens(data);
   return data;
 }
 
 export async function refreshToken() {
   const refresh = localStorage.getItem('spotify_refresh');
-  if (!refresh) return null;
-  const res = await fetch('https://accounts.spotify.com/api/token', {
+  if (!refresh) {
+    return null;
+  }
+
+  const response = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       client_id: CLIENT_ID,
       grant_type: 'refresh_token',
-      refresh_token: refresh,
-    }),
+      refresh_token: refresh
+    })
   });
-  if (!res.ok) return null;
-  const data = await res.json();
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = await response.json();
   storeTokens(data);
   return data;
 }
@@ -91,53 +119,102 @@ export async function refreshToken() {
 function storeTokens(data) {
   localStorage.setItem('spotify_access', data.access_token);
   localStorage.setItem('spotify_expires', Date.now() + data.expires_in * 1000);
-  if (data.refresh_token) localStorage.setItem('spotify_refresh', data.refresh_token);
+  // Spotify does not always send a new refresh token, so only replace it when it does.
+  if (data.refresh_token) {
+    localStorage.setItem('spotify_refresh', data.refresh_token);
+  }
 }
 
 export async function getAccessToken() {
-  const access  = localStorage.getItem('spotify_access');
+  const access = localStorage.getItem('spotify_access');
   const expires = parseInt(localStorage.getItem('spotify_expires') || '0');
-  if (!access) return null;
-  if (Date.now() < expires - 30000) return access;
+
+  if (!access) {
+    return null;
+  }
+
+  // Refresh 30 seconds early so a token cannot expire mid-request.
+  if (Date.now() < expires - 30000) {
+    return access;
+  }
+
   const refreshed = await refreshToken();
-  return refreshed ? localStorage.getItem('spotify_access') : null;
+  if (!refreshed) {
+    return null;
+  }
+  return localStorage.getItem('spotify_access');
 }
 
 export async function getNowPlaying() {
   const token = await getAccessToken();
-  if (!token) return null;
+  if (!token) {
+    return null;
+  }
+
   try {
-    const res = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
-      headers: { Authorization: `Bearer ${token}` },
+    const response = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+      headers: { Authorization: 'Bearer ' + token }
     });
-    if (res.status === 204 || !res.ok) return null;
-    const data = await res.json();
-    if (!data.is_playing || !data.item) return null;
+
+    // 204 means nothing is playing right now.
+    if (response.status === 204 || !response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    if (!data.is_playing || !data.item) {
+      return null;
+    }
+
+    // Join every artist's name into one string, e.g. "Artist A, Artist B".
+    const artistNames = [];
+    for (let i = 0; i < data.item.artists.length; i++) {
+      artistNames.push(data.item.artists[i].name);
+    }
+
+    // Prefer the medium-sized cover, but fall back to the first one.
+    const images = data.item.album.images;
+    let albumArt;
+    if (images[1]) {
+      albumArt = images[1].url;
+    } else if (images[0]) {
+      albumArt = images[0].url;
+    }
+
     return {
-      trackId:    data.item.id,
-      trackName:  data.item.name,
-      artistName: data.item.artists.map(a => a.name).join(', '),
-      albumName:  data.item.album.name,
-      albumArt:   data.item.album.images[1]?.url || data.item.album.images[0]?.url,
+      trackId: data.item.id,
+      trackName: data.item.name,
+      artistName: artistNames.join(', '),
+      albumName: data.item.album.name,
+      albumArt: albumArt
     };
-  } catch { return null; }
+  } catch (err) {
+    return null;
+  }
 }
 
 export async function getAudioFeatures(trackId) {
   const token = await getAccessToken();
-  if (!token || !trackId) return null;
+  if (!token || !trackId) {
+    return null;
+  }
+
   try {
-    const res = await fetch(`https://api.spotify.com/v1/audio-features/${trackId}`, {
-      headers: { Authorization: `Bearer ${token}` },
+    const response = await fetch('https://api.spotify.com/v1/audio-features/' + trackId, {
+      headers: { Authorization: 'Bearer ' + token }
     });
-    if (!res.ok) return null;
-    const d = await res.json();
-    return { energy: d.energy, valence: d.valence };
-  } catch { return null; }
+    if (!response.ok) {
+      return null;
+    }
+    const data = await response.json();
+    return { energy: data.energy, valence: data.valence };
+  } catch (err) {
+    return null;
+  }
 }
 
 export function isConnected() {
-  return !!localStorage.getItem('spotify_access');
+  return localStorage.getItem('spotify_access') ? true : false;
 }
 
 export function disconnect() {

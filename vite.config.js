@@ -16,22 +16,24 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-const banner = [
+// Keeps the copyright notice in the built output, not just in the sources.
+const bannerLines = [
   '/*! ember — Copyright (C) 2026 Jeremiah Ayeni <https://github.com/Jeremy-1011>',
   ' *  SPDX-License-Identifier: AGPL-3.0-or-later',
   ' *  This program is free software under the GNU Affero General Public License',
   ' *  v3 or later. Source: https://github.com/Jeremy-1011/Journal-App-Ember',
-  ' */',
-].join('\n');
+  ' */'
+];
+
+const banner = bannerLines.join('\n');
 
 export default {
-  // Keep the copyright notice in the minified output, not just in the sources.
   esbuild: { legalComments: 'inline' },
   build: {
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      output: { banner },
-    },
-  },
-}
+      output: { banner: banner }
+    }
+  }
+};

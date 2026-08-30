@@ -16,8 +16,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// Ember's "Validation Engine" — emotional-state validation and time-lock
-// enforcement, kept local-only (bound to 127.0.0.1, no external network).
+// Ember's "Validation Engine". It checks entry settings and enforces the
+// time lock. It is bound to 127.0.0.1 only, so nothing here is reachable from
+// outside this machine.
 
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -26,108 +27,158 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.WebHost.UseUrls("http://127.0.0.1:8901");
 
+// Send JSON back with camelCase names, which is what the JavaScript expects.
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
 });
 
 const string CorsPolicy = "ember-local";
+
 builder.Services.AddCors(o => o.AddPolicy(CorsPolicy, p => p
-    // Vite dev server, plus Electron's file:// pages (which send Origin: null).
+    // The Vite dev server, plus Electron's file:// pages, which send "null".
     .WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
-    .SetIsOriginAllowed(origin => origin == "null" || origin.StartsWith("http://localhost") || origin.StartsWith("http://127.0.0.1"))
+    .SetIsOriginAllowed(origin =>
+        origin == "null"
+        || origin.StartsWith("http://localhost")
+        || origin.StartsWith("http://127.0.0.1"))
     .AllowAnyHeader()
     .AllowAnyMethod()));
 
 var app = builder.Build();
 app.UseCors(CorsPolicy);
 
+// Used by the app at startup to check this service is running.
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
-// Mirrors the bounds already implied by the write-view's HTML inputs
-// (src/app.js renderCapsuleOptions/renderDecayOptions), made authoritative.
+// Checks an entry's settings before it is saved. This repeats the limits the
+// write form already shows (see renderCapsuleOptions and renderDecayOptions in
+// src/app.js), but here they are the ones that actually count.
 app.MapPost("/validate/entry", (ValidateEntryRequest req) =>
 {
     var errors = new List<string>();
     var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-    switch (req.Type)
+    if (req.Type == "capsule")
     {
-        case "capsule":
-            if (req.Capsule is null)
+        if (req.Capsule == null)
+        {
+            errors.Add("A time capsule needs an unlock date.");
+        }
+        else if (req.Capsule.UnlockAt <= now)
+        {
+            errors.Add("The unlock date must be in the future.");
+        }
+    }
+    else if (req.Type == "decay")
+    {
+        if (req.Decay == null)
+        {
+            errors.Add("A decaying entry needs decay settings.");
+        }
+        else
+        {
+            if (req.Decay.DurationDays < 1 || req.Decay.DurationDays > 3650)
             {
-                errors.Add("A time capsule needs an unlock date.");
+                errors.Add("Decay duration must be between 1 and 3650 days.");
             }
-            else if (req.Capsule.UnlockAt <= now)
-            {
-                errors.Add("The unlock date must be in the future.");
-            }
-            break;
 
-        case "decay":
-            if (req.Decay is null)
+            if (req.Decay.Mode != "words" && req.Decay.Mode != "burn")
             {
-                errors.Add("A decaying entry needs decay settings.");
+                errors.Add("Decay mode must be 'words' or 'burn'.");
             }
-            else
-            {
-                if (req.Decay.DurationDays < 1 || req.Decay.DurationDays > 3650)
-                    errors.Add("Decay duration must be between 1 and 3650 days.");
-                if (req.Decay.Mode is not ("words" or "burn"))
-                    errors.Add("Decay mode must be 'words' or 'burn'.");
-            }
-            break;
-
-        case "regular":
-            break;
-
-        default:
-            errors.Add($"Unknown entry type '{req.Type}'.");
-            break;
+        }
+    }
+    else if (req.Type != "regular")
+    {
+        errors.Add($"Unknown entry type '{req.Type}'.");
     }
 
-    return Results.Ok(new ValidateEntryResponse(errors.Count == 0, errors));
+    var response = new ValidateEntryResponse
+    {
+        Valid = errors.Count == 0,
+        Errors = errors
+    };
+
+    return Results.Ok(response);
 });
 
-// A straight port of the time-lock gate that used to live in src/app.js
-// (canModify): an entry can only be edited or deleted after a separate,
-// later revisit — and a sealed capsule stays locked until its unlock date.
+// The time-lock gate, moved here from src/app.js. An entry can only be edited
+// or deleted after a separate, later revisit, and a sealed capsule stays
+// locked until its unlock date has passed.
 app.MapPost("/validate/can-modify", (CanModifyRequest req) =>
 {
+    // Never on the first visit, whatever the entry type.
     if (!req.PriorRevisit)
-        return Results.Ok(new CanModifyResponse(false));
+    {
+        return Results.Ok(new CanModifyResponse { Allowed = false });
+    }
 
     if (req.Type == "capsule")
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var allowed = req.CapsuleUnlockAt is not null && now >= req.CapsuleUnlockAt.Value;
-        return Results.Ok(new CanModifyResponse(allowed));
+        var unlocked = req.CapsuleUnlockAt != null && now >= req.CapsuleUnlockAt.Value;
+        return Results.Ok(new CanModifyResponse { Allowed = unlocked });
     }
 
-    return Results.Ok(new CanModifyResponse(true));
+    return Results.Ok(new CanModifyResponse { Allowed = true });
 });
 
 app.Run();
 
-// Makes the top-level Program accessible to WebApplicationFactory<Program>
-// in the test project.
+// Lets the test project reach the top-level Program with
+// WebApplicationFactory<Program>.
 public partial class Program { }
 
-record CapsuleFields([property: JsonPropertyName("unlockAt")] long UnlockAt);
-record DecayFields(
-    [property: JsonPropertyName("durationDays")] int DurationDays,
-    [property: JsonPropertyName("mode")] string Mode);
+// --- Request and response shapes -------------------------------------------
+// The JsonPropertyName attributes match the names the JavaScript sends.
 
-record ValidateEntryRequest(
-    [property: JsonPropertyName("type")] string Type,
-    [property: JsonPropertyName("capsule")] CapsuleFields? Capsule,
-    [property: JsonPropertyName("decay")] DecayFields? Decay);
+public class CapsuleFields
+{
+    [JsonPropertyName("unlockAt")]
+    public long UnlockAt { get; set; }
+}
 
-record ValidateEntryResponse(bool Valid, List<string> Errors);
+public class DecayFields
+{
+    [JsonPropertyName("durationDays")]
+    public int DurationDays { get; set; }
 
-record CanModifyRequest(
-    [property: JsonPropertyName("type")] string Type,
-    [property: JsonPropertyName("priorRevisit")] bool PriorRevisit,
-    [property: JsonPropertyName("capsuleUnlockAt")] long? CapsuleUnlockAt);
+    [JsonPropertyName("mode")]
+    public string Mode { get; set; } = "";
+}
 
-record CanModifyResponse(bool Allowed);
+public class ValidateEntryRequest
+{
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "";
+
+    [JsonPropertyName("capsule")]
+    public CapsuleFields? Capsule { get; set; }
+
+    [JsonPropertyName("decay")]
+    public DecayFields? Decay { get; set; }
+}
+
+public class ValidateEntryResponse
+{
+    public bool Valid { get; set; }
+    public List<string> Errors { get; set; } = new List<string>();
+}
+
+public class CanModifyRequest
+{
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "";
+
+    [JsonPropertyName("priorRevisit")]
+    public bool PriorRevisit { get; set; }
+
+    [JsonPropertyName("capsuleUnlockAt")]
+    public long? CapsuleUnlockAt { get; set; }
+}
+
+public class CanModifyResponse
+{
+    public bool Allowed { get; set; }
+}

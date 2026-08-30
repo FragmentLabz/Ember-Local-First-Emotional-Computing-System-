@@ -25,6 +25,7 @@ from decay import get_decay_progress, render_decay_body
 
 client = TestClient(app)
 
+DAY_MS = 86400000
 NOW = int(time.time() * 1000)
 LONG_AGO = 1000
 
@@ -58,7 +59,7 @@ def test_render_decay_body_fully_decayed_returns_tombstone():
 
 def test_render_decay_body_words_mode_redacts_from_the_end():
     result = render_decay_body(
-        NOW - 15 * 86400000,  # halfway through a 30-day decay
+        NOW - 15 * DAY_MS,  # halfway through a 30-day decay
         {"durationDays": 30, "mode": "words"},
         "one two three four",
         False,
@@ -70,7 +71,7 @@ def test_render_decay_body_words_mode_redacts_from_the_end():
 
 def test_render_decay_body_burn_mode_fades_opacity():
     result = render_decay_body(
-        NOW - 15 * 86400000,
+        NOW - 15 * DAY_MS,
         {"durationDays": 30, "mode": "burn"},
         "burning",
         False,
