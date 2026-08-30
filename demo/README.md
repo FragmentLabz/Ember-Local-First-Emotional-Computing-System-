@@ -14,10 +14,24 @@ demo/
 └── app.js
 ```
 
-## Deploying to Vercel
+## Hosting it
 
-This folder is a plain static site, so it needs no framework and no build
-command.
+Three options, in order of effort.
+
+### GitHub Pages (already wired up)
+
+`.github/workflows/deploy-demo.yml` publishes this folder on every push to
+`main`. It needs one manual step, once:
+
+**Settings → Pages → Build and deployment → Source → "GitHub Actions"**
+
+After that the demo is live at
+`https://jeremy-1011.github.io/Ember--A-Local-First-Emotional-Computing-System-/`
+and updates itself whenever `demo/` changes. No tokens, no secrets.
+
+### Vercel
+
+A plain static site, so it needs no framework and no build command.
 
 **Option A — drag and drop.** Go to <https://vercel.com/new>, and drag this
 `demo` folder onto the upload area. That is the whole process.
