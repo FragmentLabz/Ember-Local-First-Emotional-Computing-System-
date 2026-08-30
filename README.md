@@ -1,10 +1,10 @@
-# ✦ Ember — The World's First Local-First Emotional Computing Systems
+# ✦ Ember — The World's First Local-First Emotional Computing System
 
 > **100% Local-First • GNU AGPLv3 Free Software**
 
 ![Views](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Jeremy-1011/Ember--A-Local-First-Emotional-Computing-System-/main/traffic-data/badge.json)
 
-Ember is the category-defining implementation of **Emotional Computing Systems** — a new
+Ember is the category-defining implementation of **Emotional Computing System** — a new
 class of cognitive software built on computational emotional mechanics.
 
 Entries exist on a glowing timeline: newest ones burn bright, older ones cool to ash.
@@ -25,7 +25,7 @@ engineering:
 - **Honesty Constraints** — Prevents self-editing and filtering during emotional
   expression, reducing cognitive distortion.
 
-These mechanics form the foundation of Emotional Computing Systems, a category created
+These mechanics form the foundation of Emotional Computing System, a category created
 and formally defined through Ember's architecture and whitepaper.
 
 ---
