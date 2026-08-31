@@ -19,7 +19,7 @@
 import { saveEntry, loadEntries, deleteEntry, generateId } from './storage.js';
 import { encrypt, decrypt, encryptBytes, decryptBytes } from './crypto.js';
 import { checkServices, validateEntry, checkCanModify, fetchDecayBatch, renderDecayEntry } from './services.js';
-import { startAuth, exchangeCode, getNowPlaying, getAudioFeatures, isConnected, disconnect } from './spotify.js';
+import { startAuth, exchangeCode, getNowPlaying, getAudioFeatures, isConnected, disconnect, getClientId, setClientId, hasClientId } from './spotify.js';
 import { version as pkgVersion } from '../package.json';
 
 // --- App metadata ----------------------------------------------------------
@@ -185,15 +185,30 @@ function render() {
     spotifyText = 'Link your Spotify account to save the track playing while you write each entry.';
   }
 
+  // Spotify apps are created per developer, so each person supplies the Client
+  // ID of their own. It is kept in this browser and never sent anywhere but
+  // Spotify's own login.
+  let clientIdField = '';
+  if (!isConnected()) {
+    clientIdField = `
+      <label class="modal-label" for="spotify-client-id">Spotify Client ID</label>
+      <input type="text" id="spotify-client-id" class="modal-input" spellcheck="false"
+             autocomplete="off" placeholder="paste the Client ID from your Spotify app"
+             value="${escAttr(getClientId())}">
+      <p class="modal-help">Create an app at developer.spotify.com/dashboard and add
+        <code>http://127.0.0.1:8888/callback</code> as a Redirect URI.</p>`;
+  }
+
   let spotifyButtons;
   if (isConnected()) {
     spotifyButtons =
       `<button class="btn-ghost" id="spotify-disconnect">Disconnect</button>
        <button class="btn-ghost" id="spotify-modal-close">Close</button>`;
   } else {
+    const connectDisabled = hasClientId() ? '' : 'disabled';
     spotifyButtons =
       `<button class="btn-ghost" id="spotify-modal-close">Cancel</button>
-       <button class="btn-green" id="spotify-connect-btn">Connect</button>`;
+       <button class="btn-green" id="spotify-connect-btn" ${connectDisabled}>Connect</button>`;
   }
 
   document.getElementById('app').innerHTML = `
@@ -226,6 +241,7 @@ function render() {
       <div class="modal">
         <h2>${spotifyHeading}</h2>
         <p>${spotifyText}</p>
+        ${clientIdField}
         <div class="modal-actions">
           ${spotifyButtons}
         </div>
@@ -945,7 +961,18 @@ function bindEvents() {
     });
   }
 
+  const clientIdInput = document.getElementById('spotify-client-id');
   const spotifyConnect = document.getElementById('spotify-connect-btn');
+
+  if (clientIdInput) {
+    clientIdInput.addEventListener('input', function () {
+      setClientId(clientIdInput.value);
+      if (spotifyConnect) {
+        spotifyConnect.disabled = !hasClientId();
+      }
+    });
+  }
+
   if (spotifyConnect) {
     spotifyConnect.addEventListener('click', handleSpotifyConnect);
   }
@@ -1453,6 +1480,10 @@ function showView(name) {
 
 // --- Spotify ---------------------------------------------------------------
 async function handleSpotifyConnect() {
+  if (!hasClientId()) {
+    return;
+  }
+
   document.getElementById('spotify-modal').classList.remove('open');
   const authUrl = await startAuth();
 
@@ -1820,6 +1851,10 @@ function cleanChildren(node) {
     }
 
     if (!isAllowedTag(child.tagName)) {
+      // Clean the inside first, then lift the children out. The order matters:
+      // once the wrapper is gone its children are no longer in this loop's
+      // copied list, so anything dangerous inside would never be checked.
+      cleanChildren(child);
       unwrapElement(child);
       continue;
     }

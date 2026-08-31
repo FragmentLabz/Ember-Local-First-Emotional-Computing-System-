@@ -33,6 +33,9 @@
   },
   "main": "electron/main.cjs",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "setup-all": "npm install",
     "services": "concurrently -k -n csharp,python -c blue,green \"dotnet run --project services/validation-engine\" \"python services/reflective-modules/app.py\"",

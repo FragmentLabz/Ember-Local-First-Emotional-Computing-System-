@@ -18,7 +18,28 @@
 
 // Spotify login (PKCE) and the few API calls Ember needs.
 
-const CLIENT_ID = 'YOUR_CLIENT_ID_HERE';
+// Your own Spotify app's Client ID, entered in Ember's Spotify panel and kept
+// in this browser. There is no default: Spotify apps are per-developer, so
+// each person supplies their own. See "Spotify setup" in the README.
+const CLIENT_ID_KEY = 'spotify_client_id';
+
+export function getClientId() {
+  return localStorage.getItem(CLIENT_ID_KEY) || '';
+}
+
+export function setClientId(id) {
+  const trimmed = String(id).trim();
+  if (trimmed) {
+    localStorage.setItem(CLIENT_ID_KEY, trimmed);
+  } else {
+    localStorage.removeItem(CLIENT_ID_KEY);
+  }
+}
+
+export function hasClientId() {
+  return getClientId() ? true : false;
+}
+
 const REDIRECT_URI = 'http://127.0.0.1:8888/callback';
 const SCOPES = 'user-read-currently-playing user-read-playback-state';
 
@@ -49,6 +70,10 @@ async function generateCodeChallenge(verifier) {
 }
 
 export async function startAuth() {
+  if (!hasClientId()) {
+    throw new Error('No Spotify Client ID set.');
+  }
+
   const verifier = generateCodeVerifier();
   const challenge = await generateCodeChallenge(verifier);
 
@@ -56,7 +81,7 @@ export async function startAuth() {
   sessionStorage.setItem('spotify_verifier', verifier);
 
   const params = new URLSearchParams({
-    client_id: CLIENT_ID,
+    client_id: getClientId(),
     response_type: 'code',
     redirect_uri: REDIRECT_URI,
     scope: SCOPES,
@@ -74,7 +99,7 @@ export async function exchangeCode(code) {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id: CLIENT_ID,
+      client_id: getClientId(),
       grant_type: 'authorization_code',
       code: code,
       redirect_uri: REDIRECT_URI,
@@ -101,7 +126,7 @@ export async function refreshToken() {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id: CLIENT_ID,
+      client_id: getClientId(),
       grant_type: 'refresh_token',
       refresh_token: refresh
     })
