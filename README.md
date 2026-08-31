@@ -145,8 +145,12 @@ Prerequisites: **.NET SDK 10+** and **Python 3.11+**, in addition to Node.
 ```bash
 npm install
 pip install -r services/reflective-modules/requirements.txt
-npm run services   # starts both local services (also included in `npm run dev` / `npm run electron`)
+npm run services   # starts both local services on their own
 ```
+
+The desktop app starts the services itself, so `npm run electron` is all you
+need there. `npm run dev` (the browser version) has no Electron to do that, so
+it starts them alongside Vite.
 
 If either service isn't running, Ember shows an error screen naming which
 one it can't reach rather than starting in a degraded state.
