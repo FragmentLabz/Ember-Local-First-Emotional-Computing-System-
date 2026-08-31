@@ -88,9 +88,9 @@ const EMBER_COUNT = 35;
 
 // Fills a particle with fresh random values. Used both when a particle is
 // created and when it burns out and starts again from the bottom.
-function resetParticle(p) {
-  p.x = Math.random() * window.innerWidth;
-  p.y = window.innerHeight + Math.random() * 60;
+function resetParticle(p, width, height) {
+  p.x = Math.random() * width;
+  p.y = height + Math.random() * 60;
   p.size = 1 + Math.random() * 3;
   p.speedY = 0.4 + Math.random() * 0.7;
   p.driftX = (Math.random() - 0.5) * 0.5;
@@ -109,9 +109,20 @@ function initEmberCanvas() {
   }
   const ctx = canvas.getContext('2d');
 
+  // Measure the canvas itself rather than the window. They are the same size
+  // until the page is scaled up on a large display, and then they are not.
+  function canvasSize() {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      width: Math.round(rect.width) || window.innerWidth,
+      height: Math.round(rect.height) || window.innerHeight
+    };
+  }
+
   function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const size = canvasSize();
+    canvas.width = size.width;
+    canvas.height = size.height;
   }
   resize();
   window.addEventListener('resize', resize);
@@ -120,8 +131,9 @@ function initEmberCanvas() {
   // through their life, so they are not all born at the bottom together.
   const particles = [];
   for (let i = 0; i < EMBER_COUNT; i++) {
-    const p = resetParticle({});
-    p.y = Math.random() * window.innerHeight;
+    const size = canvasSize();
+    const p = resetParticle({}, size.width, size.height);
+    p.y = Math.random() * size.height;
     p.life = Math.random() * p.maxLife;
     particles.push(p);
   }
@@ -163,7 +175,7 @@ function initEmberCanvas() {
       p.x += p.driftX;
       p.rotation += p.rotSpeed;
       if (p.life >= p.maxLife) {
-        resetParticle(p);
+        resetParticle(p, canvas.width, canvas.height);
       }
       drawParticle(p);
     }
