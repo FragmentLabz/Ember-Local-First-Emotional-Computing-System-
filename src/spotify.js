@@ -29,7 +29,7 @@
 //
 // Leave this empty and Ember falls back to asking for a Client ID, which is
 // what self-hosters and forks will want anyway.
-const DEFAULT_CLIENT_ID = 'testclientid123';
+const DEFAULT_CLIENT_ID = '581e440cb658440392322f469cd877c2';
 
 // A Client ID the user supplied themselves, which overrides the default.
 const CLIENT_ID_KEY = 'spotify_client_id';
