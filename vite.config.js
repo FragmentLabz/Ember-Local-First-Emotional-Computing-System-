@@ -29,6 +29,24 @@ const banner = bannerLines.join('\n');
 
 export default {
   esbuild: { legalComments: 'inline' },
+
+  server: {
+    watch: {
+      // Do not watch the services' build output. On Windows `dotnet run`
+      // holds a lock on obj/Debug/.../apphost.exe while it compiles, and the
+      // watcher dies with EBUSY the moment it tries to open it -- which takes
+      // the dev server, and everything concurrently started with it, down.
+      // None of these paths are part of the frontend anyway.
+      ignored: [
+        '**/services/**/bin/**',
+        '**/services/**/obj/**',
+        '**/services/**/__pycache__/**',
+        '**/build/**',
+        '**/release/**'
+      ]
+    }
+  },
+
   build: {
     outDir: 'dist',
     emptyOutDir: true,
