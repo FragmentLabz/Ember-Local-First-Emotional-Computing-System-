@@ -4,6 +4,13 @@ node_modules/
 # build output
 dist/
 tmp/
+build/
+release/
+
+# .NET build output
+[Bb]in/
+[Oo]bj/
+*.user
 
 # python caches
 __pycache__/
