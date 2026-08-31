@@ -4,6 +4,8 @@ node_modules/
 # build output
 dist/
 tmp/
+build/
+release/
 
 # .NET build output
 [Bb]in/
