@@ -35,6 +35,14 @@ export default {
   esbuild: { legalComments: 'inline' },
 
   server: {
+    // Bind IPv4 loopback explicitly. Vite's default host is the name
+    // "localhost", which Node resolves to ::1 first on Windows -- so the
+    // server ends up listening on IPv6 only and http://127.0.0.1:5173 is
+    // refused. Spotify accepts only the IP literal in redirect URIs, so this
+    // is the address the app has to be reachable on. It stays loopback-only:
+    // nothing is exposed to the network.
+    host: '127.0.0.1',
+
     watch: {
       // Do not watch the services' build output. On Windows `dotnet run`
       // holds a lock on obj/Debug/.../apphost.exe while it compiles, and the
@@ -49,6 +57,10 @@ export default {
         '**/release/**'
       ]
     }
+  },
+
+  preview: {
+    host: '127.0.0.1'
   },
 
   build: {
