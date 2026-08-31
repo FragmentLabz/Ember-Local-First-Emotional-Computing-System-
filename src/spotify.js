@@ -65,7 +65,20 @@ export function hasClientId() {
   return getClientId() ? true : false;
 }
 
-const REDIRECT_URI = 'http://127.0.0.1:8888/callback';
+// Where Spotify sends the browser back to after login.
+//
+// The desktop app never really serves this address -- Electron opens the login
+// in its own window and reads the code out of the navigation before it is
+// requested, so 127.0.0.1:8888 is only a marker.
+//
+// A browser has no interceptor, so it genuinely follows the redirect and the
+// address has to be a page this app is actually serving.
+export function redirectUri() {
+  if (window.emberAPI && window.emberAPI.isElectron) {
+    return 'http://127.0.0.1:8888/callback';
+  }
+  return window.location.origin + '/callback';
+}
 const SCOPES = 'user-read-currently-playing user-read-playback-state';
 
 // Spotify wants base64 in a URL-safe form: no +, no / and no trailing =.
@@ -108,7 +121,7 @@ export async function startAuth() {
   const params = new URLSearchParams({
     client_id: getClientId(),
     response_type: 'code',
-    redirect_uri: REDIRECT_URI,
+    redirect_uri: redirectUri(),
     scope: SCOPES,
     code_challenge_method: 'S256',
     code_challenge: challenge
@@ -127,7 +140,7 @@ export async function exchangeCode(code) {
       client_id: getClientId(),
       grant_type: 'authorization_code',
       code: code,
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: redirectUri(),
       code_verifier: verifier
     })
   });

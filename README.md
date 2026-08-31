@@ -232,6 +232,11 @@ npm run electron
 Ember can save the track playing while you write. Click **♫** in the top-right
 and choose **Sign in with Spotify** — that is the whole thing.
 
+> Using the browser version, open it at **http://127.0.0.1:5173**, not
+> `localhost:5173`. Spotify only accepts the loopback address in redirect URIs,
+> and the two are different origins, so signing in from `localhost` loses the
+> verifier stored for `127.0.0.1`.
+
 ### For maintainers: registering Ember's Spotify app
 
 "Sign in with Spotify" needs one Spotify application to exist, registered once
@@ -239,7 +244,9 @@ by whoever ships Ember. Until `DEFAULT_CLIENT_ID` in `src/spotify.js` is filled
 in, the panel asks each user for a Client ID of their own instead.
 
 1. Create an app at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
-2. Add `http://127.0.0.1:8888/callback` as a **Redirect URI**
+2. Add **both** of these as **Redirect URIs**:
+   - `http://127.0.0.1:8888/callback` — the desktop app
+   - `http://127.0.0.1:5173/callback` — the browser version (`npm run dev`)
 3. Copy the **Client ID** into `DEFAULT_CLIENT_ID` in `src/spotify.js`
 
 Committing that Client ID is safe. Ember uses the PKCE flow, which has no

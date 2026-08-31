@@ -1948,6 +1948,29 @@ function renderServiceError(status) {
     </div>`;
 }
 
+// After a browser sign-in, Spotify sends the page back with ?code=... in the
+// address. Trade that code for tokens, then take it back out of the address so
+// a refresh does not try to reuse a code that has already been spent.
+async function finishSpotifySignIn() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  const failed = params.get('error');
+
+  if (!code && !failed) {
+    return;
+  }
+
+  if (code) {
+    try {
+      await exchangeCode(code);
+    } catch (err) {
+      console.error('Spotify sign-in could not be completed:', err);
+    }
+  }
+
+  window.history.replaceState({}, '', window.location.pathname);
+}
+
 async function boot() {
   // Both local services have to be up before anything is shown.
   const status = await checkServices();
@@ -1955,6 +1978,8 @@ async function boot() {
     renderServiceError(status);
     return;
   }
+
+  await finishSpotifySignIn();
 
   entries = await loadEntries();
   await refreshDecayStatus();

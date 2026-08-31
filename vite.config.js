@@ -28,6 +28,10 @@ const bannerLines = [
 const banner = bannerLines.join('\n');
 
 export default {
+  // Serve index.html for /callback too, so Spotify can redirect the browser
+  // back into the app rather than onto a 404.
+  appType: 'spa',
+
   esbuild: { legalComments: 'inline' },
 
   server: {
