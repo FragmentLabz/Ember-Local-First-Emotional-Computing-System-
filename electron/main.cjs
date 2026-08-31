@@ -19,6 +19,7 @@
 const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron');
 const path = require('path');
 const packageJson = require('../package.json');
+const services = require('./services.cjs');
 
 const APP_VERSION = packageJson.version;
 
@@ -56,7 +57,40 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(function () {
+// Shown when a service will not start, so the user sees a reason instead of
+// an empty window.
+function showServiceError(failedNames) {
+  const win = new BrowserWindow({
+    width: 620,
+    height: 420,
+    backgroundColor: '#070503',
+    webPreferences: { nodeIntegration: false, contextIsolation: true }
+  });
+
+  const names = failedNames.join(' and ');
+  const page = `
+    <meta charset="utf-8">
+    <style>
+      body { background:#070503; color:#ede0cc; font-family:Georgia,serif;
+             display:flex; align-items:center; justify-content:center;
+             height:100vh; margin:0; padding:40px; text-align:center; }
+      .spark { color:#d04818; font-size:34px; }
+      h1 { font-weight:400; font-size:21px; margin:16px 0 10px; }
+      p { color:#c2a585; font-size:14px; line-height:1.6; max-width:46ch; margin:0 auto; }
+      code { color:#e88020; font-size:13px; }
+    </style>
+    <div>
+      <div class="spark">&#10022;</div>
+      <h1>Ember could not start ${names}</h1>
+      <p>The bundled service did not respond. If you are running from a
+      checkout rather than an installed build, start the services yourself with
+      <code>npm run services</code>, then reopen Ember.</p>
+    </div>`;
+
+  win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(page));
+}
+
+app.whenReady().then(async function () {
   // Authorship shown by the operating system's own About panel.
   app.setAboutPanelOptions({
     applicationName: 'ember',
@@ -67,7 +101,22 @@ app.whenReady().then(function () {
   });
 
   Menu.setApplicationMenu(null);
+
+  // The window is only useful once both services answer, so start them first.
+  const projectRoot = path.join(__dirname, '..');
+  const failed = await services.startAll(projectRoot);
+
+  if (failed.length > 0) {
+    showServiceError(failed);
+    return;
+  }
+
   createWindow();
+});
+
+// Do not leave services running after the app is gone.
+app.on('will-quit', function () {
+  services.stopAll();
 });
 
 app.on('window-all-closed', function () {

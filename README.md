@@ -151,9 +151,9 @@ npm run services   # starts both local services (also included in `npm run dev` 
 If either service isn't running, Ember shows an error screen naming which
 one it can't reach rather than starting in a degraded state.
 
-> Packaging these services into the Electron build so end users don't need
-> .NET/Python installed separately is a planned follow-up, not done yet —
-> today this is a development-time setup.
+> These prerequisites are for **running from a checkout**. Installed builds
+> carry both services inside them — see [Building installers](#building-installers)
+> — so end users need nothing but the app.
 
 ### Live demo
 
@@ -163,6 +163,40 @@ An interactive page showing the three mechanics — drag a slider to watch an
 entry decay, step through the time lock, and try to paste into the editor. It
 runs entirely in the browser: no services behind it, and nothing typed on the
 page is sent anywhere. Source in [`demo/`](demo/).
+
+---
+
+## Building installers
+
+An installed Ember bundles both services, so nobody needs .NET or Python to
+run it. Those toolchains are needed only on the machine doing the build.
+
+```bash
+npm install
+pip install pyinstaller
+npm run dist          # builds the app, both services, and an installer
+```
+
+`npm run dist` runs three steps in order:
+
+| Step | What it produces |
+|---|---|
+| `vite build` | the frontend, into `dist/` |
+| `npm run build:services` | both services as standalone binaries, into `build/services/` |
+| `electron-builder` | the installer, into `release/` |
+
+The service binaries are copied into the packaged app's
+`resources/services/`, which is where `electron/services.cjs` looks for them.
+On launch it starts both, waits for each to answer `/health`, and stops them
+again when the app quits. If a service will not start, Ember shows a window
+naming it rather than an empty screen.
+
+Running from a checkout, those binaries do not exist, so the same code falls
+back to running the services from source — which is why the prerequisites
+above still apply for development.
+
+Targets are AppImage on Linux, dmg on macOS and NSIS on Windows. Each has to be
+built on its own platform, because the bundled services are native executables.
 
 ---
 
