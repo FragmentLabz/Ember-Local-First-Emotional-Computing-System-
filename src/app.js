@@ -19,7 +19,7 @@
 import { saveEntry, loadEntries, deleteEntry, generateId } from './storage.js';
 import { encrypt, decrypt, encryptBytes, decryptBytes } from './crypto.js';
 import { checkServices, validateEntry, checkCanModify, fetchDecayBatch, renderDecayEntry } from './services.js';
-import { startAuth, exchangeCode, getNowPlaying, getAudioFeatures, isConnected, disconnect, getClientId, setClientId, hasClientId, hasDefaultClientId, usingOwnClientId } from './spotify.js';
+import { startAuth, exchangeCode, getNowPlaying, getAudioFeatures, isConnected, disconnect, getClientId, setClientId, hasClientId, hasDefaultClientId, usingOwnClientId, redirectUri } from './spotify.js';
 import { version as pkgVersion } from '../package.json';
 
 // --- App metadata ----------------------------------------------------------
@@ -201,7 +201,16 @@ function render() {
                 </button>`;
     }
 
+    // Spotify rejects the login unless this exact string is registered on the
+    // app, and it depends on where Ember is being run from -- so show it
+    // rather than leaving people to work it out.
+    const uriNotice = `
+      <p class="modal-help redirect-notice">This app must have
+        <code>${escHtml(redirectUri())}</code>
+        registered as a Redirect URI in the Spotify dashboard.</p>`;
+
     clientIdField = `
+      ${uriNotice}
       ${toggle}
       <div id="spotify-advanced" ${advancedHidden}>
         <label class="modal-label" for="spotify-client-id">Spotify Client ID</label>

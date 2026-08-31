@@ -1387,3 +1387,13 @@ html, body {
 .modal-toggle:hover { color: var(--text-dim); border-bottom-color: var(--text-faint); }
 
 .spotify-mark { margin-right: 5px; }
+
+.redirect-notice {
+  margin-top: 16px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+.redirect-notice code { user-select: all; }
