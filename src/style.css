@@ -1368,3 +1368,22 @@ html, body {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ─── SPOTIFY SIGN-IN ──────────────────────────────────────────── */
+.modal-toggle {
+  display: block;
+  margin-top: 16px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border-2);
+  color: var(--text-faint);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.modal-toggle:hover { color: var(--text-dim); border-bottom-color: var(--text-faint); }
+
+.spotify-mark { margin-right: 5px; }

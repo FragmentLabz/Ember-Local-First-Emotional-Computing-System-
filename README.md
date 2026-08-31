@@ -229,10 +229,32 @@ npm run electron
 
 ## Spotify setup (optional)
 
-1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) and create an app
+Ember can save the track playing while you write. Click **♫** in the top-right
+and choose **Sign in with Spotify** — that is the whole thing.
+
+### For maintainers: registering Ember's Spotify app
+
+"Sign in with Spotify" needs one Spotify application to exist, registered once
+by whoever ships Ember. Until `DEFAULT_CLIENT_ID` in `src/spotify.js` is filled
+in, the panel asks each user for a Client ID of their own instead.
+
+1. Create an app at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
 2. Add `http://127.0.0.1:8888/callback` as a **Redirect URI**
-3. Copy your **Client ID**
-4. In Ember, click **♫** in the top-right and enter your Client ID
+3. Copy the **Client ID** into `DEFAULT_CLIENT_ID` in `src/spotify.js`
+
+Committing that Client ID is safe. Ember uses the PKCE flow, which has no
+client secret precisely so the ID can ship inside a public application — the
+secret that matters is the code verifier, generated fresh on each machine for
+every sign-in and never transmitted.
+
+Two things to know before relying on it:
+
+- A new Spotify app starts in **Development Mode**, which only works for up to
+  25 accounts that you add by email in the dashboard. Going beyond that needs
+  Spotify's **Extended Quota Mode** review.
+- Anyone can still use their own app: **Use your own Spotify app instead**, in
+  the same panel, overrides the shipped ID. Forks and self-hosters will want
+  this, and it is what the panel falls back to when no ID is shipped.
 
 ---
 

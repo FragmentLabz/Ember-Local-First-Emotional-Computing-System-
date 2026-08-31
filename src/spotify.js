@@ -18,13 +18,38 @@
 
 // Spotify login (PKCE) and the few API calls Ember needs.
 
-// Your own Spotify app's Client ID, entered in Ember's Spotify panel and kept
-// in this browser. There is no default: Spotify apps are per-developer, so
-// each person supplies their own. See "Spotify setup" in the README.
+// Ember's own Spotify application. This is what makes "Sign in with Spotify"
+// work without asking anyone to register their own app.
+//
+// Publishing a Client ID is safe here. Ember uses the PKCE flow, which has no
+// client secret precisely so that the ID can ship inside a public app -- that
+// is the flow Spotify documents for desktop and single-page apps. The secret
+// that matters is the code verifier, which is generated fresh on this machine
+// for every sign-in and never leaves it.
+//
+// Leave this empty and Ember falls back to asking for a Client ID, which is
+// what self-hosters and forks will want anyway.
+const DEFAULT_CLIENT_ID = 'testclientid123';
+
+// A Client ID the user supplied themselves, which overrides the default.
 const CLIENT_ID_KEY = 'spotify_client_id';
 
 export function getClientId() {
-  return localStorage.getItem(CLIENT_ID_KEY) || '';
+  const own = localStorage.getItem(CLIENT_ID_KEY);
+  if (own) {
+    return own;
+  }
+  return DEFAULT_CLIENT_ID;
+}
+
+// True when Ember ships an app of its own, so the user can just sign in.
+export function hasDefaultClientId() {
+  return DEFAULT_CLIENT_ID ? true : false;
+}
+
+// True when the user has chosen to use their own app instead.
+export function usingOwnClientId() {
+  return localStorage.getItem(CLIENT_ID_KEY) ? true : false;
 }
 
 export function setClientId(id) {

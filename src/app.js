@@ -19,7 +19,7 @@
 import { saveEntry, loadEntries, deleteEntry, generateId } from './storage.js';
 import { encrypt, decrypt, encryptBytes, decryptBytes } from './crypto.js';
 import { checkServices, validateEntry, checkCanModify, fetchDecayBatch, renderDecayEntry } from './services.js';
-import { startAuth, exchangeCode, getNowPlaying, getAudioFeatures, isConnected, disconnect, getClientId, setClientId, hasClientId } from './spotify.js';
+import { startAuth, exchangeCode, getNowPlaying, getAudioFeatures, isConnected, disconnect, getClientId, setClientId, hasClientId, hasDefaultClientId, usingOwnClientId } from './spotify.js';
 import { version as pkgVersion } from '../package.json';
 
 // --- App metadata ----------------------------------------------------------
@@ -185,18 +185,32 @@ function render() {
     spotifyText = 'Link your Spotify account to save the track playing while you write each entry.';
   }
 
-  // Spotify apps are created per developer, so each person supplies the Client
-  // ID of their own. It is kept in this browser and never sent anywhere but
-  // Spotify's own login.
+  // When Ember ships its own Spotify app, signing in is one button and the
+  // Client ID field is tucked away for people who want to use their own app.
+  // With no app of its own, the field is the only way in, so it is shown.
   let clientIdField = '';
   if (!isConnected()) {
+    const ownId = usingOwnClientId() ? localStorage.getItem('spotify_client_id') : '';
+    const startOpen = !hasDefaultClientId() || usingOwnClientId();
+    const advancedHidden = startOpen ? '' : 'hidden';
+
+    let toggle = '';
+    if (hasDefaultClientId()) {
+      toggle = `<button type="button" class="modal-toggle" id="spotify-advanced-toggle">
+                  Use your own Spotify app instead
+                </button>`;
+    }
+
     clientIdField = `
-      <label class="modal-label" for="spotify-client-id">Spotify Client ID</label>
-      <input type="text" id="spotify-client-id" class="modal-input" spellcheck="false"
-             autocomplete="off" placeholder="paste the Client ID from your Spotify app"
-             value="${escAttr(getClientId())}">
-      <p class="modal-help">Create an app at developer.spotify.com/dashboard and add
-        <code>http://127.0.0.1:8888/callback</code> as a Redirect URI.</p>`;
+      ${toggle}
+      <div id="spotify-advanced" ${advancedHidden}>
+        <label class="modal-label" for="spotify-client-id">Spotify Client ID</label>
+        <input type="text" id="spotify-client-id" class="modal-input" spellcheck="false"
+               autocomplete="off" placeholder="paste the Client ID from your Spotify app"
+               value="${escAttr(ownId)}">
+        <p class="modal-help">Create an app at developer.spotify.com/dashboard and add
+          <code>http://127.0.0.1:8888/callback</code> as a Redirect URI.</p>
+      </div>`;
   }
 
   let spotifyButtons;
@@ -206,9 +220,14 @@ function render() {
        <button class="btn-ghost" id="spotify-modal-close">Close</button>`;
   } else {
     const connectDisabled = hasClientId() ? '' : 'disabled';
+    // A recognisable sign-in button when Ember has its own app; otherwise the
+    // plainer wording, because the user is wiring up their own.
+    const connectLabel = hasDefaultClientId() && !usingOwnClientId()
+      ? '<span class="spotify-mark">&#9835;</span> Sign in with Spotify'
+      : 'Connect';
     spotifyButtons =
       `<button class="btn-ghost" id="spotify-modal-close">Cancel</button>
-       <button class="btn-green" id="spotify-connect-btn" ${connectDisabled}>Connect</button>`;
+       <button class="btn-green" id="spotify-connect-btn" ${connectDisabled}>${connectLabel}</button>`;
   }
 
   document.getElementById('app').innerHTML = `
@@ -964,11 +983,29 @@ function bindEvents() {
   const clientIdInput = document.getElementById('spotify-client-id');
   const spotifyConnect = document.getElementById('spotify-connect-btn');
 
+  const advancedToggle = document.getElementById('spotify-advanced-toggle');
+  if (advancedToggle) {
+    advancedToggle.addEventListener('click', function () {
+      const panel = document.getElementById('spotify-advanced');
+      if (panel) {
+        panel.hidden = !panel.hidden;
+      }
+    });
+  }
+
   if (clientIdInput) {
     clientIdInput.addEventListener('input', function () {
       setClientId(clientIdInput.value);
       if (spotifyConnect) {
         spotifyConnect.disabled = !hasClientId();
+      }
+    });
+
+    // Clearing the field goes back to Ember's own app, if there is one.
+    clientIdInput.addEventListener('change', function () {
+      if (!clientIdInput.value.trim() && hasDefaultClientId()) {
+        render();
+        document.getElementById('spotify-modal').classList.add('open');
       }
     });
   }
