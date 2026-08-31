@@ -25,7 +25,7 @@ engineering:
 - **Honesty Constraints** — Prevents self-editing and filtering during emotional
   expression, reducing cognitive distortion.
 
-These mechanics form the foundation of Emotional Computing Systems, a category created
+These mechanics form the foundation of Emotional Computing System, a category created
 and formally defined through Ember's architecture and whitepaper.
 
 ---
@@ -92,7 +92,7 @@ on.
 
 The full technical framework is documented in the whitepaper:
 
-> *"Emotional Computing Systems: A Technical Framework for Computational Emotional
+> *"Emotional Computing System: A Technical Framework for Computational Emotional
 > Mechanics."*
 
 ---
