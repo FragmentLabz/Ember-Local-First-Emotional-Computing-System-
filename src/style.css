@@ -1397,3 +1397,6 @@ html, body {
 }
 
 .redirect-notice code { user-select: all; }
+
+.redirect-warning { border-color: var(--dec-color); }
+.redirect-warning a { color: var(--ember-2); }

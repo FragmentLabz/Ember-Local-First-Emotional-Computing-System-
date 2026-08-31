@@ -73,6 +73,23 @@ export function hasClientId() {
 //
 // A browser has no interceptor, so it genuinely follows the redirect and the
 // address has to be a page this app is actually serving.
+// Spotify accepts plain HTTP only for loopback IP literals -- 127.0.0.1 or
+// [::1]. The name "localhost" points at the same machine but is not an IP, so
+// Spotify refuses to register it and rejects any login that sends it.
+export function isLocalhostOrigin() {
+  if (window.emberAPI && window.emberAPI.isElectron) {
+    return false;
+  }
+  return window.location.hostname === 'localhost';
+}
+
+// The same page, addressed by loopback IP instead of by name. Browsers treat
+// the two as separate origins, so this has to be opened before signing in --
+// not after -- or the verifier saved under one is invisible to the other.
+export function loopbackUrl() {
+  return window.location.href.replace('//localhost', '//127.0.0.1');
+}
+
 export function redirectUri() {
   if (window.emberAPI && window.emberAPI.isElectron) {
     return 'http://127.0.0.1:8888/callback';

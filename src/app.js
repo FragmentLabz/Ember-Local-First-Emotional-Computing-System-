@@ -19,7 +19,7 @@
 import { saveEntry, loadEntries, deleteEntry, generateId } from './storage.js';
 import { encrypt, decrypt, encryptBytes, decryptBytes } from './crypto.js';
 import { checkServices, validateEntry, checkCanModify, fetchDecayBatch, renderDecayEntry } from './services.js';
-import { startAuth, exchangeCode, getNowPlaying, getAudioFeatures, isConnected, disconnect, getClientId, setClientId, hasClientId, hasDefaultClientId, usingOwnClientId, redirectUri } from './spotify.js';
+import { startAuth, exchangeCode, getNowPlaying, getAudioFeatures, isConnected, disconnect, getClientId, setClientId, hasClientId, hasDefaultClientId, usingOwnClientId, redirectUri, isLocalhostOrigin, loopbackUrl } from './spotify.js';
 import { version as pkgVersion } from '../package.json';
 
 // --- App metadata ----------------------------------------------------------
@@ -204,10 +204,21 @@ function render() {
     // Spotify rejects the login unless this exact string is registered on the
     // app, and it depends on where Ember is being run from -- so show it
     // rather than leaving people to work it out.
-    const uriNotice = `
-      <p class="modal-help redirect-notice">This app must have
-        <code>${escHtml(redirectUri())}</code>
-        registered as a Redirect URI in the Spotify dashboard.</p>`;
+    let uriNotice;
+    if (isLocalhostOrigin()) {
+      // Nothing the user can register would make this work, so send them to
+      // the address that does rather than letting Spotify reject the login.
+      uriNotice = `
+        <p class="modal-help redirect-notice redirect-warning">Spotify does not
+          accept <code>localhost</code> addresses. Open Ember at
+          <a href="${escAttr(loopbackUrl())}">${escHtml(loopbackUrl())}</a>
+          and sign in from there.</p>`;
+    } else {
+      uriNotice = `
+        <p class="modal-help redirect-notice">This app must have
+          <code>${escHtml(redirectUri())}</code>
+          registered as a Redirect URI in the Spotify dashboard.</p>`;
+    }
 
     clientIdField = `
       ${uriNotice}
@@ -228,7 +239,7 @@ function render() {
       `<button class="btn-ghost" id="spotify-disconnect">Disconnect</button>
        <button class="btn-ghost" id="spotify-modal-close">Close</button>`;
   } else {
-    const connectDisabled = hasClientId() ? '' : 'disabled';
+    const connectDisabled = (hasClientId() && !isLocalhostOrigin()) ? '' : 'disabled';
     // A recognisable sign-in button when Ember has its own app; otherwise the
     // plainer wording, because the user is wiring up their own.
     const connectLabel = hasDefaultClientId() && !usingOwnClientId()
