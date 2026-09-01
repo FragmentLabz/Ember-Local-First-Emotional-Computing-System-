@@ -18,7 +18,7 @@ on your device. No accounts. No cloud. No tracking.
   <img src="docs/Demo.gif" alt="Writing an entry in Ember: typing into the editor with paste disabled, the slash-command block menu, and switching between regular, time capsule and decaying entry types." width="820">
 </p>
 <p align="center">
-  <img src="docs/spotify connection.gif" alt="Writing an entry in Ember: typing into the editor with paste disabled, the slash-command block menu, and switching between regular, time capsule and decaying entry types." width="820">
+  <img src="docs/SpotifyConnection.gif" alt="Writing an entry in Ember: typing into the editor with paste disabled, the slash-command block menu, and switching between regular, time capsule and decaying entry types." width="820">
 </p>
 <p align="center">
   <img src="docs/.gif" alt="Writing an entry in Ember: typing into the editor with paste disabled, the slash-command block menu, and switching between regular, time capsule and decaying entry types." width="820">
