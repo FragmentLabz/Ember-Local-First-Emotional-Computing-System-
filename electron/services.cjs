@@ -29,6 +29,21 @@ const path = require('path');
 const fs = require('fs');
 
 const HOST = '127.0.0.1';
+
+// Which Python to use when running from a checkout. Linux and macOS usually
+// have python3; Windows usually has python. Try both rather than guessing.
+function pythonCommand() {
+  const candidates = ['python3', 'python'];
+  for (let i = 0; i < candidates.length; i++) {
+    try {
+      require('child_process').execFileSync(candidates[i], ['--version'], { stdio: 'ignore' });
+      return candidates[i];
+    } catch (err) {
+      // Not this one. Try the next.
+    }
+  }
+  return 'python3';
+}
 const STARTUP_TIMEOUT_MS = 30000;
 const POLL_INTERVAL_MS = 250;
 
@@ -44,7 +59,7 @@ const SERVICES = [
     name: 'reflective-modules',
     port: 8902,
     binary: 'reflective-modules',
-    devCommand: 'python3',
+    devCommand: pythonCommand(),
     devArgs: [path.join('services', 'reflective-modules', 'app.py')]
   }
 ];
