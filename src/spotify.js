@@ -261,12 +261,27 @@ export async function getNowPlaying() {
       albumArt = images[0].url;
     }
 
+    // The biggest cover for the panel, and a small one for the timeline card.
+    let albumArtLarge;
+    if (images[0]) {
+      albumArtLarge = images[0].url;
+    } else {
+      albumArtLarge = albumArt;
+    }
+
     return {
       trackId: data.item.id,
       trackName: data.item.name,
       artistName: artistNames.join(', '),
       albumName: data.item.album.name,
-      albumArt: albumArt
+      albumArt: albumArt,
+      albumArtLarge: albumArtLarge,
+      // How far into the track Spotify was when it answered, and when that
+      // was, so the position can be carried forward between polls.
+      durationMs: data.item.duration_ms || 0,
+      progressMs: data.progress_ms || 0,
+      isPlaying: data.is_playing ? true : false,
+      fetchedAt: Date.now()
     };
   } catch (err) {
     return null;

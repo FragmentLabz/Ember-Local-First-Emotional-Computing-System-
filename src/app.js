@@ -39,6 +39,8 @@ let currentView = 'list';
 let currentType = 'regular';
 let nowPlaying = null;
 let spotifyPollTimer = null;
+let spotifyTickTimer = null;
+let nowPlayingTrackId = null;
 let decayStatus = {}; // entry id -> { progress, fullyDecayed }, from the reflective-modules service
 let writeMode = 'new';
 let editingId = null;
@@ -489,10 +491,6 @@ function renderWrite() {
 
   const sealLabel = writeMode === 'edit' ? 'save changes' : 'seal it';
 
-  let nowPlayingText = '';
-  if (nowPlaying) {
-    nowPlayingText = '&#9835; ' + escHtml(nowPlaying.trackName || '');
-  }
 
   return `
     <div class="write-inner">
@@ -517,9 +515,7 @@ function renderWrite() {
         <button class="type-tab ${currentType === 'decay' ? 'active' : ''}" data-type="decay">decaying</button>
       </div>
       <div class="write-actions">
-        <div id="now-playing-bar" class="${nowPlaying ? 'visible' : ''}">
-          ${nowPlayingText}
-        </div>
+        <div id="now-playing-bar" class="${nowPlaying ? 'visible' : ''}">${renderNowPlaying()}</div>
         <button id="cancel-btn">cancel</button>
         <button id="seal-btn"><span>${sealLabel}</span></button>
       </div>
@@ -1547,6 +1543,100 @@ function showView(name) {
   }
 }
 
+// --- Now playing -----------------------------------------------------------
+
+// Milliseconds as M:SS, the way a music player writes them.
+function formatTrackTime(ms) {
+  if (!ms || ms < 0) {
+    ms = 0;
+  }
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes + ':' + padTwo(seconds);
+}
+
+// Spotify is only asked every few seconds, so carry the position forward using
+// the clock in between. That is what makes the bar move smoothly rather than
+// jumping once per poll.
+function currentProgressMs() {
+  if (!nowPlaying) {
+    return 0;
+  }
+
+  let progress = nowPlaying.progressMs || 0;
+  if (nowPlaying.isPlaying) {
+    progress = progress + (Date.now() - nowPlaying.fetchedAt);
+  }
+
+  if (nowPlaying.durationMs && progress > nowPlaying.durationMs) {
+    progress = nowPlaying.durationMs;
+  }
+  return progress;
+}
+
+function renderNowPlaying() {
+  if (!nowPlaying) {
+    return '';
+  }
+
+  let art = '<div class="np-art np-art-empty">&#9835;</div>';
+  if (nowPlaying.albumArt) {
+    art = '<img class="np-art" src="' + escAttr(nowPlaying.albumArt) + '" alt="">';
+  }
+
+  const pausedClass = nowPlaying.isPlaying ? '' : ' np-paused';
+
+  return art +
+    '<div class="np-body">' +
+      '<div class="np-track">' + escHtml(nowPlaying.trackName || '') + '</div>' +
+      '<div class="np-artist">' + escHtml(nowPlaying.artistName || '') + '</div>' +
+      '<div class="np-bar' + pausedClass + '"><div class="np-fill" id="np-fill"></div></div>' +
+      '<div class="np-times">' +
+        '<span id="np-elapsed">0:00</span>' +
+        '<span>' + formatTrackTime(nowPlaying.durationMs) + '</span>' +
+      '</div>' +
+    '</div>';
+}
+
+// Moves only the bar and the elapsed time. Called several times a second, so it
+// deliberately does not touch anything else.
+function updateNowPlayingProgress() {
+  const fill = document.getElementById('np-fill');
+  const elapsed = document.getElementById('np-elapsed');
+  if (!fill || !elapsed || !nowPlaying) {
+    return;
+  }
+
+  const progress = currentProgressMs();
+  let percent = 0;
+  if (nowPlaying.durationMs > 0) {
+    percent = (progress / nowPlaying.durationMs) * 100;
+  }
+
+  fill.style.width = percent.toFixed(2) + '%';
+  elapsed.textContent = formatTrackTime(progress);
+}
+
+// Rebuilds the bar, but only when the track actually changed -- otherwise the
+// artwork would flicker on every poll.
+function refreshNowPlayingBar() {
+  const bar = document.getElementById('now-playing-bar');
+  if (!bar) {
+    return;
+  }
+
+  const trackId = nowPlaying ? nowPlaying.trackId : null;
+
+  if (trackId !== nowPlayingTrackId) {
+    nowPlayingTrackId = trackId;
+    bar.innerHTML = renderNowPlaying();
+  }
+
+  bar.className = nowPlaying ? 'visible' : '';
+  updateNowPlayingProgress();
+}
+
 // --- Spotify ---------------------------------------------------------------
 async function handleSpotifyConnect() {
   if (!hasClientId()) {
@@ -1586,21 +1676,15 @@ function startSpotifyPoll() {
 
   async function poll() {
     nowPlaying = await getNowPlaying();
-    const bar = document.getElementById('now-playing-bar');
-    if (!bar) {
-      return;
-    }
-    if (nowPlaying) {
-      bar.className = 'now-playing-bar visible';
-      bar.textContent = '♫ ' + nowPlaying.trackName;
-    } else {
-      bar.className = 'now-playing-bar';
-      bar.textContent = '';
-    }
+    refreshNowPlayingBar();
   }
 
   poll();
   spotifyPollTimer = setInterval(poll, 5000);
+
+  // Between polls the position is worked out from the clock, so the bar keeps
+  // moving instead of stepping once every five seconds.
+  spotifyTickTimer = setInterval(updateNowPlayingProgress, 250);
 }
 
 function stopSpotifyPoll() {
@@ -1608,6 +1692,11 @@ function stopSpotifyPoll() {
     clearInterval(spotifyPollTimer);
     spotifyPollTimer = null;
   }
+  if (spotifyTickTimer) {
+    clearInterval(spotifyTickTimer);
+    spotifyTickTimer = null;
+  }
+  nowPlayingTrackId = null;
 }
 
 // --- Seal ------------------------------------------------------------------
