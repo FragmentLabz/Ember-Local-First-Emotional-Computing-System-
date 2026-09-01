@@ -15,14 +15,17 @@ on your device. No accounts. No cloud. No tracking.
 > people find work like this, and it is the one thing that helps most.
 
 <p align="center">
-  <img src="docs/Demo.gif" alt="Writing an entry in Ember: typing into the editor with paste disabled, the slash-command block menu, and switching between regular, time capsule and decaying entry types." width="820">
+  <img src="docs/Demo.gif" width="820"
+       alt="Writing an entry in Ember: typing a title and body into the editor, the slash-command block menu opening, and switching between the regular, time capsule and decaying entry types.">
+  <br><em>Writing an entry — paste is disabled, so it has to be in your own words.</em>
 </p>
+
 <p align="center">
-  <img src="docs/SpotifyConnection.gif" alt="Writing an entry in Ember: typing into the editor with paste disabled, the slash-command block menu, and switching between regular, time capsule and decaying entry types." width="820">
+  <img src="docs/SpotifyConnection.gif" width="820"
+       alt="Connecting Spotify in Ember: the music button in the header turns green once linked, and an entry on the timeline carries the track that was playing when it was written.">
+  <br><em>Connecting Spotify — entries keep the track that was playing while you wrote them.</em>
 </p>
-<p align="center">
-  <img src="docs/TimeLockMechanic.gif" alt="Writing an entry in Ember: typing into the editor with paste disabled, the slash-command block menu, and switching between regular, time capsule and decaying entry types." width="820">
-</p>
+
 ---
 
 ## What Makes Ember Unique
