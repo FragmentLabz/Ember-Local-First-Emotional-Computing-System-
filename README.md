@@ -11,6 +11,9 @@ Entries exist on a glowing timeline: newest ones burn bright, older ones cool to
 Some are sealed until a future date. Others are written to disappear. Everything stays
 on your device. No accounts. No cloud. No tracking.
 
+> ⭐ **If Ember resonates with you, please star the repository.** Stars are how
+> people find work like this, and it is the one thing that helps most.
+
 ---
 
 ## What Makes Ember Unique
@@ -297,6 +300,12 @@ be modelled through deterministic mechanics rather than interpretation, forming 
 basis of a new category in cognitive software.
 
 ---
+
+## Star the project
+
+If you find Ember interesting — the mechanics, the local-first architecture, or
+just the idea — [**star it on GitHub**](https://github.com/Jeremy-1011/Ember--A-Local-First-Emotional-Computing-System-). It costs you a click, and it is
+what puts a project like this in front of the next person who needs it.
 
 ## Author
 
