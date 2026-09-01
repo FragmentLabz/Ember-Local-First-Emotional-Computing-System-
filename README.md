@@ -15,7 +15,7 @@ on your device. No accounts. No cloud. No tracking.
 > people find work like this, and it is the one thing that helps most.
 
 <p align="center">
-  <img src="docs/demo.gif" alt="Writing an entry in Ember: typing into the editor with paste disabled, the slash-command block menu, and switching between regular, time capsule and decaying entry types." width="820">
+  <img src="docs/Demo.gif" alt="Writing an entry in Ember: typing into the editor with paste disabled, the slash-command block menu, and switching between regular, time capsule and decaying entry types." width="820">
 </p>
 
 ---
