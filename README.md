@@ -17,6 +17,8 @@ on your device. No accounts. No cloud. No tracking.
 <p align="center">
   <img src="docs/Demo.gif" alt="Writing an entry in Ember: typing into the editor with paste disabled, the slash-command block menu, and switching between regular, time capsule and decaying entry types." width="820">
 </p>
+  <br><em>Text Input and Saving mechanics.</em>
+</p>
 
 <p align="center">
   <img src="docs/timeline.png" alt="Ember's timeline: three entries alternating either side of a glowing spine. A regular entry tagged with the track that was playing, a time capsule marked sealed until a future date, and a decaying entry." width="820">
